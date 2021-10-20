@@ -32,7 +32,7 @@ class Emps_Locs_View {
         ELocaddress = res["eLocaddress"],
         LocLatitude = res["locLatitude"],
         locLngtude = res["locLngtude"],
-        dateTime = res["dateTime"],
+        dateTime = DateTime.parse(res["dateTime"]),
         LOCID = res["LOCID".toLowerCase()],
         entering = res["entering"],
         totalHours = res["totalHours"],

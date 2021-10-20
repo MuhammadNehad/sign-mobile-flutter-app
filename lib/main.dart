@@ -11,9 +11,10 @@ import 'package:signingapp/backgroundTasks/runInbackGround.dart';
 import 'package:signingapp/dbHelper/sqliteHelper.dart';
 
 import 'package:signingapp/services/connectionService.dart';
+import 'package:signingapp/web/httpServices/permissionsService.dart';
 
 import 'web/httpServices/employeeService.dart';
-
+import 'package:permission_handler/permission_handler.dart' as ph;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'globals.dart' as globals;
 import 'viewHelpers/notifications.dart';
@@ -35,9 +36,10 @@ void main() async {
       return;
     }
   }
-  const MethodChannel empLocServiceReq =
-      MethodChannel("empLocService.LocRationalPerm");
-  await empLocServiceReq.invokeMethod("getBackGroundReq");
+
+  // const MethodChannel empLocServiceReq =
+  //     MethodChannel("empLocService.LocRationalPerm");
+  // await empLocServiceReq.invokeMethod("getBackGroundReq");
 // You can can also directly ask the permission about its status.
 
   PermissionStatus pGranted = await location.hasPermission();
@@ -45,16 +47,27 @@ void main() async {
     // await AppSettings.openLocationSettings(asAnotherTask: true);
     pGranted = await location.hasPermission();
     if (pGranted == PermissionStatus.denied) {
-      await location.enableBackgroundMode(enable: true);
       pGranted = await location.requestPermission();
-      if (pGranted != PermissionStatus.granted) {
-        return;
+      if (pGranted == PermissionStatus.granted) {
+        await location
+            .enableBackgroundMode(enable: true)
+            .whenComplete(() => {});
       }
     }
   }
-
-//  await EmpsServices.getEmplyeesViewService();
   runApp(ValidateMyCode());
+
+  // ph.Permission k = ph.Permission.locationAlways;
+  // if (Platform.isAndroid) {
+  //   var t = await k.shouldShowRequestRationale;
+  //   if (t) {
+  //     ph.PermissionStatus pAGranted = await k.request();
+  //     if (pAGranted != ph.PermissionStatus.granted) {
+  //       return;
+  //     }
+  //   }
+  // }
+//  await EmpsServices.getEmplyeesViewService();
 }
 
 Future<void> locService() async {}
@@ -153,6 +166,15 @@ class MyAppView extends State<MyApp> {
     //   create: (context) => LocationService().locationStream,
     //   child: Home(),
     // );
+  }
+
+  Future<Widget> address() async {
+    globals.shared = await SharedPreferences.getInstance();
+    return Scaffold(
+      body: Center(
+        child: Text('Location: ${globals.shared.getString("locAddress")} '),
+      ),
+    );
   }
 }
 

@@ -23,88 +23,22 @@ class Home extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // var userlocation = Provider.of<locations>(context);
-    // var pref = SharedPreferences.getInstance();
-    // String myCode =
-    //     globals.shared != null ? globals.shared.getString("myCode") : "";
+    return (address().then((value) {
+      return value;
+    }, onError: () {
+      return Scaffold(
+        body: Center(
+          child: Text('Location: not detected '),
+        ),
+      );
+    }) as Widget);
+  }
 
-    // globals.shared.setDouble("lat", userlocation.latitude);
-    // globals.shared.setDouble("lon", userlocation.longtude);
-
-    // if (!Hive.box<Emps_Locs_View>("Emps_Locs_View").isOpen) {
-    //   Hive.openBox<Emps_Locs_View>("Emps_Locs_View");
-    // }
-
-    // if (globals.t1 == null) {
-    //   // globals.t1 = Timer.periodic(Duration(seconds: 200), (t) async {
-    //   //   // await EmpsServices.getEmplyeesViewServiceBCode(myCode!);
-    //   // });
-    // }
-    // if (globals.t2 == null) {
-    //   // globals.t2 = Timer.periodic(Duration(seconds: 20), (t) {
-    //   // Emps_Locs_View elv =
-    //   //     Hive.box<Emps_Locs_View>("Emps_Locs_View").get(myCode);
-    //   // Box<Attendings> attendings = Boxes.getAttendings();
-    //   // Attendings a = Attendings();
-    //   // if (elv != null) {
-    //   //   if (elv.LocLatitude != null &&
-    //   //       elv.locLngtude != null &&
-    //   //       globals.shared!.getDouble("lat") != null &&
-    //   //       globals.shared!.getDouble("lon") != null) {
-    //   //     Distance s = new Distance();
-    //   //     num meters = s.as(
-    //   //         LengthUnit.Meter,
-    //   //         new LatLng(globals.shared!.getDouble("lat"),
-    //   //             globals.shared!.getDouble("lon")),
-    //   //         new LatLng(elv.LocLatitude, elv.locLngtude));
-    //   //     double distance = calculateDistance(
-    //   //         globals.shared!.getDouble("lat"),
-    //   //         globals.shared!.getDouble("lon"),
-    //   //         elv.LocLatitude,
-    //   //         elv.locLngtude);
-
-    //   //     if (distance.abs() < 20) {
-    //   //       if (!elv.entering) {
-    //   //         a
-    //   //           ..empKey = elv.empId
-    //   //           ..locationKey = elv.LOCID
-    //   //           ..entering = !elv.entering
-    //   //           ..leaveAfter = 0
-    //   //           ..atdt = DateTime.now();
-    //   //         checkAndAddAttendings(a);
-    //   //       }
-    //   //     } else {
-    //   //       if (elv.entering) {
-    //   //         a
-    //   //           ..empKey = elv.empId
-    //   //           ..locationKey = elv.LOCID
-    //   //           ..entering = !elv.entering
-    //   //           ..leaveAfter = 0
-    //   //           ..atdt = DateTime.now();
-    //   //         checkAndAddAttendings(a);
-    //   //       }
-    //   //     }
-    //   //   }
-    //   // }
-    //   // });
-    // }
-    // Fluttertoast.showToast(
-    //     msg: "tracking",
-    //     toastLength: Toast.LENGTH_SHORT,
-    //     gravity: ToastGravity.CENTER,
-    //     timeInSecForIosWeb: 1,
-    //     backgroundColor: Colors.red,
-    //     textColor: Colors.white,
-    //     fontSize: 16.0);
-    // db.insertEmployee(Employee(
-    //     id: 1,
-    //     name: "currentUser",
-    //     phone: userlocation.latitude,
-    //     longitude: userlocation.longtude));
-
+  Future<Widget> address() async {
+    globals.shared = await SharedPreferences.getInstance();
     return Scaffold(
       body: Center(
-        child: Text('Location: Lat: ,  Lat:  '),
+        child: Text('Location: ${globals.shared.getString("locAddress")} '),
       ),
     );
   }

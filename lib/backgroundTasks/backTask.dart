@@ -173,6 +173,7 @@ void saveLocations() async {
               // elv.entering = a.entering;
               checkAndAddAttendings(aOut);
             }
+            attendingsL = await db.getAttendings();
             await np.showNotification("${mcloc.address}, out");
             if (attendingsL.length > 0) {
               difference = lastTime.difference(nowUTC);
@@ -233,10 +234,8 @@ void saveLocations() async {
 
               // elv.entering = a.entering;
               checkAndAddAttendings(aOut);
-              await sharedPrefs.remove("adding....");
-              await sharedPrefs.remove("started Process....");
-              return;
             }
+            attendingsL = await db.getAttendings();
             await np.showNotification("$mLocAddress, out");
             if (attendingsL.length > 0) {
               difference = lastTime.difference(nowUTC);
@@ -269,6 +268,7 @@ void saveLocations() async {
     } catch (e) {
       await sharedPrefs.remove("adding....");
       await sharedPrefs.remove("started Process....");
+      await np.showNotification(e);
 
       throw (e);
     }
