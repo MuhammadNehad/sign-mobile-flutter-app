@@ -36,9 +36,9 @@ void callbackDispatcher() {
       switch (methodCall.method) {
         case "saveLocations":
           if (await Permission.location.isRestricted) {
-            Map<Permission, PermissionStatus> statuses = await [
-              Permission.location,
-            ].request();
+            // Map<Permission, PermissionStatus> statuses = await [
+            //   Permission.location,
+            // ].request();
             // The OS restricts access, for example because of parental controls.
             // BackgroundLocation.startLocationService(distanceFilter: 10.0);
           } else {
@@ -55,6 +55,7 @@ void callbackDispatcher() {
     });
   } on PlatformException catch (e) {
     print(e.message);
+    np.showNotification(e.message);
   }
 }
 
@@ -128,7 +129,7 @@ void saveLocations() async {
             await sharedPrefs.setString(
                 "lastTimeInTheZone....", nowUTC.toString());
 
-            await np.showNotification("${mcloc.address}, IN");
+            // await np.showNotification("${mcloc.address}, IN");
             if (attendingsL.length > 0) {
               if (attendingsL.last.entering == false) {
                 if (!param4) {
@@ -268,7 +269,7 @@ void saveLocations() async {
     } catch (e) {
       await sharedPrefs.remove("adding....");
       await sharedPrefs.remove("started Process....");
-      await np.showNotification(e);
+      print(e);
 
       throw (e);
     }

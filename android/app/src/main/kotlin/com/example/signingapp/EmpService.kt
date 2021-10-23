@@ -30,6 +30,7 @@ import io.flutter.view.FlutterCallbackInformation
 import io.flutter.view.FlutterMain
 import io.flutter.view.FlutterNativeView
 import io.flutter.view.FlutterRunArguments
+import java.lang.Exception
 
 
 class EmpService : Service() ,MethodChannel.MethodCallHandler{
@@ -68,9 +69,11 @@ class EmpService : Service() ,MethodChannel.MethodCallHandler{
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        val sharedPreferences: SharedPreferences = this.getSharedPreferences("EmpServiceSharedPrefFile",Context.MODE_PRIVATE)
+        var sharedPreferences: SharedPreferences = this.getSharedPreferences("EmpServiceSharedPrefFile",Context.MODE_PRIVATE)
         context=this.applicationContext
         val cbdh:Long =sharedPreferences.getLong("CallbackDispatcherHandleKEY",0)
+        var isWorking:Boolean =sharedPreferences.getBoolean("isServiceOn",false)
+
         val fcbI:FlutterCallbackInformation = FlutterCallbackInformation.lookupCallbackInformation(cbdh)
         val fa:FlutterRunArguments = FlutterRunArguments();
         fa.bundlePath =FlutterMain.findAppBundlePath()
@@ -89,45 +92,53 @@ class EmpService : Service() ,MethodChannel.MethodCallHandler{
         mBackgroundChannel2 = MethodChannel(fnv.dartExecutor.binaryMessenger ,
                 "empLocService.Service")
 
-        locationCallBack =object:LocationCallback()
-        {
-            override fun onLocationAvailability(p0: LocationAvailability?) {
-                super.onLocationAvailability(p0)
-            }
-
-            override fun onLocationResult(p0: LocationResult) {
-                super.onLocationResult(p0)
-
-
-
-
-            }
-        }
-
-        if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
-            // TODO: Consider calling
-            //    ActivityCompat#requestPermissions
-            // here to request the missing permissions, and then overriding
-            //   public void onRequestPermissionsResult(int requestCode, String[] permissions,
-            //                                          int[] grantResults)
-            // to handle the case where the user grants the permission. See the documentation
-            // for ActivityCompat#requestPermissions for more details.
-//            fuseLocationProvier!!.requestLocationUpdates(locationRequest,locationCallBack, Looper.myLooper())
-//            getlastloc()
-        }
+//        locationCallBack =object:LocationCallback()
+//        {
+//            override fun onLocationAvailability(p0: LocationAvailability?) {
+//                super.onLocationAvailability(p0)
+//            }
 //
-        if(!working)
+//            override fun onLocationResult(p0: LocationResult) {
+//                super.onLocationResult(p0)
+//
+//
+//
+//
+//            }
+//        }
+
+//        if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
+//            // TODO: Consider calling
+//            //    ActivityCompat#requestPermissions
+//            // here to request the missing permissions, and then overriding
+//            //   public void onRequestPermissionsResult(int requestCode, String[] permissions,
+//            //                                          int[] grantResults)
+//            // to handle the case where the user grants the permission. See the documentation
+//            // for ActivityCompat#requestPermissions for more details.
+////            fuseLocationProvier!!.requestLocationUpdates(locationRequest,locationCallBack, Looper.myLooper())
+////            getlastloc()
+//        }
+//
+
+        if(!isWorking)
         {
             if (mtimer == null) {
                 mtimer = Handler(Looper.getMainLooper());
             }
+            try {
+
+
             mtimer?.post(object : Runnable {
                 override fun run() {
+                    sharedPreferences = getSharedPreferences("EmpServiceSharedPrefFile",Context.MODE_PRIVATE)
                     val cbh:Long =sharedPreferences.getLong("CALLBACKHANDLEKEY",0)
                     val l:ArrayList<*> =  arrayListOf(
                             cbh
 
                     );
+                    val editor:SharedPreferences.Editor = sharedPreferences.edit()
+                        editor.putBoolean("isServiceOn",true)
+                    editor.apply()
                     working = true;
                     Log.i(TAG, "entered Here ")
                     mBackgroundChannel2.invokeMethod("saveLocations", l, object : MethodChannel.Result {
@@ -146,7 +157,7 @@ class EmpService : Service() ,MethodChannel.MethodCallHandler{
                                 val channelName = "Background Service"
                                 val chan = NotificationChannel(NOTIFICATION_CHANNEL_ID, channelName, NotificationManager.IMPORTANCE_NONE)
                                 chan.setLightColor(Color.BLUE)
-                                chan.setLockscreenVisibility(Notification.VISIBILITY_PRIVATE)
+//                                chan.setLockscreenVisibility(Notification.VISIBILITY_PRIVATE)
 
                                 val manager: NotificationManager = (getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager)!!
                                 manager.createNotificationChannel(chan)
@@ -160,6 +171,13 @@ class EmpService : Service() ,MethodChannel.MethodCallHandler{
                 }
 
             });
+            }catch (ex:Exception)
+            {
+                sharedPreferences = getSharedPreferences("EmpServiceSharedPrefFile",Context.MODE_PRIVATE)
+                val editor:SharedPreferences.Editor = sharedPreferences.edit()
+                editor.putBoolean("isServiceOn",false)
+                editor.apply()
+            }
         }else
         {
 
@@ -262,27 +280,29 @@ class EmpService : Service() ,MethodChannel.MethodCallHandler{
 
     override fun onDestroy() {
         super.onDestroy()
-//        if(mtimer!=null)
-//        {
-//            mtimer?.removeCallbacksAndMessages(null);
-//        }
-//        var intent:Intent = Intent();
-//        intent.setAction("restartservice");
-//        intent.setClass(this,EmpBroadCast::class.java)
-//        this.sendBroadcast(intent)
+        if(mtimer!=null)
+        {
+            working =false
+            //            mtimer?.removeCallbacksAndMessages(null);
+        }
+        // var intent:Intent = Intent();
+        // intent.setAction("restartservice");
+        // intent.setClass(this,EmpBroadCast::class.java)
+        // this.sendBroadcast(intent)
 
     }
 
     override fun onTaskRemoved(rootIntent: Intent?) {
         super.onTaskRemoved(rootIntent)
-//        if(mtimer!=null)
-//        {
-//            mtimer?.removeCallbacksAndMessages(null);
-//        }
-//        var intent:Intent = Intent();
-//        intent.setAction("restartservice");
-//        intent.setClass(this,EmpBroadCast::class.java)
-//        this.sendBroadcast(intent)
+//         if(mtimer!=null)
+//         {
+//             working =false
+// //            mtimer?.removeCallbacksAndMessages(null);
+//         }
+//         var intent:Intent = Intent();
+//         intent.setAction("restartservice");
+//         intent.setClass(this,EmpBroadCast::class.java)
+//         this.sendBroadcast(intent)
 
     }
 

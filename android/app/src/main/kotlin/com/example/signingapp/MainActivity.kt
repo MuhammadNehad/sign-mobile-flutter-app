@@ -13,7 +13,7 @@ import io.flutter.plugin.common.MethodCall
 import io.flutter.plugin.common.MethodChannel
 
 
-class MainActivity: FlutterActivity() , MethodChannel.MethodCallHandler {
+class MainActivity: FlutterActivity()  {
     companion object{
         var flutterEngineInstance: FlutterEngine? = null
     }
@@ -64,12 +64,12 @@ class MainActivity: FlutterActivity() , MethodChannel.MethodCallHandler {
         {
             if(serviceClass.name.equals(service.service.className))
             {
-//                Log.i("Service Status","Running")
-//                stopService(Intent(this, Class.forName( service.service.className)))
-//                var intent:Intent = Intent();
-//                intent.setAction("restartservice");
-//                intent.setClass(this,EmpBroadCast::class.java)
-//                this.sendBroadcast(intent)
+                Log.i("Service Status","Running")
+                stopService(Intent(this, Class.forName( service.service.className)))
+                var intent:Intent = Intent();
+                intent.setAction("restartservice");
+                intent.setClass(this,EmpBroadCast::class.java)
+                this.sendBroadcast(intent)
 
                 return true
             }
@@ -88,23 +88,23 @@ class MainActivity: FlutterActivity() , MethodChannel.MethodCallHandler {
 //        }
     }
 
-    override fun onMethodCall(call: MethodCall, result: MethodChannel.Result) {
-        val args:ArrayList<*> = call.arguments();
-        val callbackhandler =args.get(0) as Long;
-        if(call.method.equals("initializeService"))
-        {
-            mCallbackDispatcherHandle = callbackhandler;
-            result.success(null);
-            return;
-        }else if(call.method.equals("run")){
-            val i:Intent= Intent(this,EmpService::class.java)
-            i.putExtra("CALLBACKHANDLEKEY",callbackhandler)
-            i.putExtra("CALLBACKDISPATCHERHANDLEKEY",mCallbackDispatcherHandle)
-            activity?.startService(i)
-            result.success(null)
-            return;
-        }
+    // override fun onMethodCall(call: MethodCall, result: MethodChannel.Result) {
+    //     val args:ArrayList<*> = call.arguments();
+    //     val callbackhandler =args.get(0) as Long;
+    //     if(call.method.equals("initializeService"))
+    //     {
+    //         mCallbackDispatcherHandle = callbackhandler;
+    //         result.success(null);
+    //         return;
+    //     }else if(call.method.equals("run")){
+    //         val i:Intent= Intent(this,EmpService::class.java)
+    //         i.putExtra("CALLBACKHANDLEKEY",callbackhandler)
+    //         i.putExtra("CALLBACKDISPATCHERHANDLEKEY",mCallbackDispatcherHandle)
+    //         activity?.startService(i)
+    //         result.success(null)
+    //         return;
+    //     }
 
-    }
+    // }
 
 }

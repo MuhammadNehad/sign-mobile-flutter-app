@@ -21,7 +21,6 @@ import 'viewHelpers/notifications.dart';
 import 'package:location/location.dart';
 import 'package:app_settings/app_settings.dart';
 
-Location location = new Location();
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   HttpOverrides.global = new MyHttpOverrides();
@@ -29,32 +28,11 @@ void main() async {
 
   await globals.shared.setBool("still_running", false);
 
-  bool _serviceEnabled = await location.serviceEnabled();
-  if (!_serviceEnabled) {
-    _serviceEnabled = await location.requestService();
-    if (!_serviceEnabled) {
-      return;
-    }
-  }
-
   // const MethodChannel empLocServiceReq =
   //     MethodChannel("empLocService.LocRationalPerm");
   // await empLocServiceReq.invokeMethod("getBackGroundReq");
 // You can can also directly ask the permission about its status.
 
-  PermissionStatus pGranted = await location.hasPermission();
-  if (pGranted == PermissionStatus.denied) {
-    // await AppSettings.openLocationSettings(asAnotherTask: true);
-    pGranted = await location.hasPermission();
-    if (pGranted == PermissionStatus.denied) {
-      pGranted = await location.requestPermission();
-      if (pGranted == PermissionStatus.granted) {
-        await location
-            .enableBackgroundMode(enable: true)
-            .whenComplete(() => {});
-      }
-    }
-  }
   runApp(ValidateMyCode());
 
   // ph.Permission k = ph.Permission.locationAlways;
@@ -104,6 +82,29 @@ class MyAppView extends State<MyApp> {
     super.initState();
     // saveLocations();
     // initEmplyee();
+    Location location = new Location();
+
+    location.serviceEnabled().then((_serviceEnabled) async {
+      if (!_serviceEnabled) {
+        _serviceEnabled = await location.requestService();
+        if (!_serviceEnabled) {
+          return;
+        }
+      }
+      PermissionStatus pGranted = await location.hasPermission();
+      if (pGranted == PermissionStatus.denied) {
+        // await AppSettings.openLocationSettings(asAnotherTask: true);
+        pGranted = await location.hasPermission();
+        if (pGranted == PermissionStatus.denied) {
+          pGranted = await location.requestPermission();
+          if (pGranted == PermissionStatus.granted) {
+            await location
+                .enableBackgroundMode(enable: true)
+                .whenComplete(() => {});
+          }
+        }
+      }
+    });
     RunDartInBackground.initialize();
   }
 
