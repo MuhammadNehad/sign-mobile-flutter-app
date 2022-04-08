@@ -1,14 +1,15 @@
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:http/http.dart' as http;
+import 'package:dio/dio.dart';
 
 class BaseService {
-  static const baseUri = 'http://192.168.1.9:5421/api/';
+  var http = Dio();
+  static const baseUri = 'http://62.135.109.243:3232/api/';
   static final Map<String, String> header = {
     'Content-Type': "application/json; charset=UTF-8"
   };
-  static Future<http.Response> makeRequest(String url,
+  static Future<Response> makeRequest(String url,
       {String method = 'POST',
       bodyd,
       mergeDefaultHeader = true,
@@ -19,23 +20,33 @@ class BaseService {
       switch (method) {
         case 'POST':
           bodyd ??= {};
-          return await http.post(Uri.parse(url),
-              headers: sentHeaders, body: jsonEncode(bodyd));
+          return await Dio().post(Uri.parse(url).toString(),
+              options: Options(headers: sentHeaders), data: jsonEncode(bodyd));
         case 'GET':
           bodyd ??= {};
-          return await http.get(Uri.parse(url), headers: sentHeaders);
+          return await Dio().get(
+            Uri.parse(url).toString(),
+            options: Options(headers: sentHeaders),
+          );
         case 'PUT':
           bodyd ??= {};
-          return await http.put(Uri.parse(url), headers: sentHeaders);
+          return await Dio().put(
+            Uri.parse(url).toString(),
+            options: Options(headers: sentHeaders),
+          );
         case 'DELETE':
           bodyd ??= {};
-          return await http.delete(Uri.parse(url), headers: sentHeaders);
+          return await Dio().delete(
+            Uri.parse(url).toString(),
+            options: Options(headers: sentHeaders),
+          );
         default:
-          return await http.post(Uri.parse(url),
-              headers: sentHeaders, body: bodyd);
+          return await Dio().post(Uri.parse(url).toString(),
+              options: Options(headers: sentHeaders), data: jsonEncode(bodyd));
       }
     } catch (e) {
-      return http.Response("error", 400);
+      return Response(
+          statusMessage: "error", statusCode: 400, requestOptions: null);
     }
   }
 

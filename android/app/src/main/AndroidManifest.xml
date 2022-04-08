@@ -1,14 +1,15 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools"
     package="com.example.signingapp">
-    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>
-    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" tools:remove="android:maxSdkVersion"/>
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" tools:remove="android:maxSdkVersion" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
 
-    <uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION" />
- <uses-permission android:name="android.permission.INTERNET"/>
-   <application
-
+    <uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION"  tools:remove="android:maxSdkVersion"/>
+    <uses-permission android:name="android.permission.INTERNET" tools:remove="android:maxSdkVersion"/>
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>
+    <application
+android:name="${applicationName}"
         android:label="signingapp"
        android:usesCleartextTraffic="true"
         android:icon="@mipmap/ic_launcher"
@@ -43,7 +44,10 @@
                 <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
-        </activity>
+            <intent-filter>
+                <action android:name="android.provider.Settings.ACTION_LOCATION_SOURCE_SETTINGS" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter> </activity>
         <!-- Don't delete the meta-data below.
              This is used by the Flutter tool to generate GeneratedPluginRegistrant.java -->
        <service android:name=".EmpService" />
@@ -52,6 +56,20 @@
                <action android:name="restartservice"/>
            </intent-filter>
        </receiver>
+       <receiver android:name=".ShutDownReceiver" android:enabled="true" android:exported="true">
+            <intent-filter android:priority="500">
+                <action android:name="android.intent.action.Action_SHUTDOWN"/>
+               <action android:name="android.intent.action.BOOT_COMPLETED"/>
+                <action android:name="android.intent.action.QUICKBOOT_POWEROFF"/>
+            </intent-filter>
+
+       </receiver>
+       <!-- <receiver android:name=".ShutDownReceiver" android:exported="true">
+           <intent-filter>
+               <action android:name="android.intent.category.DEFAULT"/>
+           </intent-filter>
+
+       </receiver> -->
 <!--       <receiver android:name="io.flutter.plugins.geofencing.GeofencingBroadcastReceiver"-->
 <!--    android:enabled="true" android:exported="true"/>-->
 <!--<service android:name="io.flutter.plugins.geofencing.GeofencingService"-->

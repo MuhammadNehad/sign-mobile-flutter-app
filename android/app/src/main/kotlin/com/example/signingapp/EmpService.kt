@@ -38,14 +38,26 @@ class EmpService : Service() ,MethodChannel.MethodCallHandler{
     private lateinit var mBackgroundChannel2: MethodChannel
     private val TAG: String = "Emp Service"
     private var working: Boolean = false
-    private var mtimer: Handler? = null
     private var location:Location?= null
     private var locationRequest:LocationRequest?= null
     private var locationCallBack:LocationCallback?= null
     private var fuseLocationProvier:FusedLocationProviderClient?= null
     private var serviceLooper: Looper? = null
     private var serviceHandler: ServiceHandler? = null
+    companion object ServiceHelpers{
+        private var mtimer: Handler? = null
+        fun closingService(sharedPreferences: SharedPreferences)
+        {
+            val editor:SharedPreferences.Editor = sharedPreferences.edit()
+            editor.putBoolean("isServiceOn",false)
+            editor.apply()
+            if (mtimer != null) {
+                mtimer?.removeCallbacksAndMessages(null)
+                mtimer = null
+            }
 
+        }
+    }
     // Handler that receives messages from the thread
     private inner class ServiceHandler(looper: Looper) : Handler(looper) {
 
@@ -67,30 +79,31 @@ class EmpService : Service() ,MethodChannel.MethodCallHandler{
     override fun onBind(intent: Intent?): IBinder? {
         TODO("Not yet implemented")
     }
-
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         var sharedPreferences: SharedPreferences = this.getSharedPreferences("EmpServiceSharedPrefFile",Context.MODE_PRIVATE)
-        context=this.applicationContext
-        val cbdh:Long =sharedPreferences.getLong("CallbackDispatcherHandleKEY",0)
-        var isWorking:Boolean =sharedPreferences.getBoolean("isServiceOn",false)
+        try {
 
-        val fcbI:FlutterCallbackInformation = FlutterCallbackInformation.lookupCallbackInformation(cbdh)
-        val fa:FlutterRunArguments = FlutterRunArguments();
-        fa.bundlePath =FlutterMain.findAppBundlePath()
+            context=this.applicationContext
+            val cbdh:Long =sharedPreferences.getLong("CallbackDispatcherHandleKEY",0)
+            var isWorking:Boolean =sharedPreferences.getBoolean("isServiceOn",false)
+            val fnv:FlutterEngine = FlutterEngine(this)
 
-        val args = DartExecutor.DartCallback(
-                this.assets,
-                fa.bundlePath,
-                fcbI
-        )
-        Log.i(TAG, "service started ")
+            val fcbI:FlutterCallbackInformation = FlutterCallbackInformation.lookupCallbackInformation(cbdh)
+            val fa:FlutterRunArguments = FlutterRunArguments();
+            fa.bundlePath =FlutterMain.findAppBundlePath()
 
-        val fnv:FlutterEngine = FlutterEngine(this)
-        fnv.getDartExecutor().executeDartCallback(args)
-        fuseLocationProvier=LocationServices.getFusedLocationProviderClient(this);
-        createLocationRequest();
-        mBackgroundChannel2 = MethodChannel(fnv.dartExecutor.binaryMessenger ,
-                "empLocService.Service")
+            val args = DartExecutor.DartCallback(
+                    this.assets,
+                    fa.bundlePath,
+                    fcbI
+            )
+            Log.i(TAG, "service started ")
+
+            fnv.getDartExecutor().executeDartCallback(args)
+            fuseLocationProvier=LocationServices.getFusedLocationProviderClient(this);
+            createLocationRequest();
+            mBackgroundChannel2 = MethodChannel(fnv.dartExecutor.binaryMessenger ,
+                    "empLocService.Service")
 
 //        locationCallBack =object:LocationCallback()
 //        {
@@ -120,71 +133,82 @@ class EmpService : Service() ,MethodChannel.MethodCallHandler{
 //        }
 //
 
-        if(!isWorking)
-        {
-            if (mtimer == null) {
-                mtimer = Handler(Looper.getMainLooper());
-            }
-            try {
+            if(!isWorking)
+            {
+                if (mtimer == null) {
+                    mtimer = Handler(Looper.getMainLooper());
+                }
+                try {
 
 
-            mtimer?.post(object : Runnable {
-                override fun run() {
-                    sharedPreferences = getSharedPreferences("EmpServiceSharedPrefFile",Context.MODE_PRIVATE)
-                    val cbh:Long =sharedPreferences.getLong("CALLBACKHANDLEKEY",0)
-                    val l:ArrayList<*> =  arrayListOf(
-                            cbh
+                    mtimer?.post(object : Runnable {
+                        override fun run() {
+                            sharedPreferences = getSharedPreferences("EmpServiceSharedPrefFile",Context.MODE_PRIVATE)
+                            val cbh:Long =sharedPreferences.getLong("CALLBACKHANDLEKEY",0)
+                            val l:ArrayList<*> =  arrayListOf(
+                                    cbh
 
-                    );
-                    val editor:SharedPreferences.Editor = sharedPreferences.edit()
-                        editor.putBoolean("isServiceOn",true)
-                    editor.apply()
-                    working = true;
-                    Log.i(TAG, "entered Here ")
-                    mBackgroundChannel2.invokeMethod("saveLocations", l, object : MethodChannel.Result {
-                        override fun notImplemented() {
-                            Log.i(TAG, "Not Implemented ")
-                        }
+                            );
+                            val editor:SharedPreferences.Editor = sharedPreferences.edit()
+                            editor.putBoolean("isServiceOn",true)
+                            editor.apply()
+                            working = true;
+                            Log.i(TAG, "entered Here ")
+                            mBackgroundChannel2.invokeMethod("saveLocations", l, object : MethodChannel.Result {
+                                override fun notImplemented() {
+                                    Log.i(TAG, "Not Implemented ")
+                                }
 
-                        override fun error(errorCode: String?, errorMessage: String?, errorDetails: Any?) {
-                            Log.i(TAG, "failed " + errorCode + ":" + errorMessage)
-                        }
+                                override fun error(errorCode: String?, errorMessage: String?, errorDetails: Any?) {
+                                    Log.i(TAG, "failed " + errorCode + ":" + errorMessage)
+                                    sharedPreferences = getSharedPreferences("EmpServiceSharedPrefFile",Context.MODE_PRIVATE)
+                                    val editor:SharedPreferences.Editor = sharedPreferences.edit()
+                                    editor.putBoolean("isServiceOn",false)
+                                    editor.apply()   }
 
-                        override fun success(result: Any?) {
-                            Log.i(TAG, "succedded ")
-                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                                val NOTIFICATION_CHANNEL_ID = "example.permanence"
-                                val channelName = "Background Service"
-                                val chan = NotificationChannel(NOTIFICATION_CHANNEL_ID, channelName, NotificationManager.IMPORTANCE_NONE)
-                                chan.setLightColor(Color.BLUE)
+                                override fun success(result: Any?) {
+                                    Log.i(TAG, "succedded ")
+                                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                                        val NOTIFICATION_CHANNEL_ID = "example.permanence"
+                                        val channelName = "Background Service"
+                                        val chan = NotificationChannel(NOTIFICATION_CHANNEL_ID, channelName, NotificationManager.IMPORTANCE_NONE)
+                                        chan.setLightColor(Color.BLUE)
 //                                chan.setLockscreenVisibility(Notification.VISIBILITY_PRIVATE)
 
-                                val manager: NotificationManager = (getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager)!!
-                                manager.createNotificationChannel(chan)
+                                        val manager: NotificationManager = (getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager)!!
+                                        manager.createNotificationChannel(chan)
 
-                            }else{
-                            }
+                                    }else{
+                                    }
+                                }
+
+                            })
+                            mtimer?.postDelayed(this, 10000)
                         }
 
-                    })
-                    mtimer?.postDelayed(this, 10000)
+                    });
+                }catch (ex:Exception)
+                {
+                    sharedPreferences = getSharedPreferences("EmpServiceSharedPrefFile",Context.MODE_PRIVATE)
+                    val editor:SharedPreferences.Editor = sharedPreferences.edit()
+                    editor.putBoolean("isServiceOn",false)
+                    editor.apply()
                 }
-
-            });
-            }catch (ex:Exception)
+            }else
             {
-                sharedPreferences = getSharedPreferences("EmpServiceSharedPrefFile",Context.MODE_PRIVATE)
-                val editor:SharedPreferences.Editor = sharedPreferences.edit()
-                editor.putBoolean("isServiceOn",false)
-                editor.apply()
+
             }
-        }else
+        }catch ( ex:Exception)
         {
+            sharedPreferences = getSharedPreferences("EmpServiceSharedPrefFile",Context.MODE_PRIVATE)
+            val editor:SharedPreferences.Editor = sharedPreferences.edit()
+            editor.putBoolean("isServiceOn",false)
+            editor.apply()
 
         }
+
         return START_STICKY
     }
-
     fun createLocationRequest()
     {
         locationRequest = LocationRequest.create()
@@ -197,19 +221,19 @@ class EmpService : Service() ,MethodChannel.MethodCallHandler{
     }
     fun getlastloc()
     {
-        try {
-            fuseLocationProvier!!.lastLocation.addOnCompleteListener {task ->
-                if(task.isSuccessful && task.result!=null)
-                {
-                    location= task.result
-                }else{
-
-                }
-            }
-        }catch (unlikely:SecurityException)
-        {
-
-        }
+//        try {
+//            fuseLocationProvier!!.lastLocation.addOnCompleteListener {task ->
+//                if(task.isSuccessful && task.result!=null)
+//                {
+//                    location= task.result
+//                }else{
+//
+//                }
+//            }
+//        }catch (unlikely:SecurityException)
+//        {
+//
+//        }
     }
     fun empFun( context: Context) {
         Log.i(TAG, "entered emp Fun ")
@@ -234,8 +258,8 @@ class EmpService : Service() ,MethodChannel.MethodCallHandler{
             val NOTIFICATION_CHANNEL_ID = "example.permanence"
             val channelName = "Background Service"
             val chan = NotificationChannel(NOTIFICATION_CHANNEL_ID, channelName, NotificationManager.IMPORTANCE_NONE)
-            chan.setLightColor(Color.BLUE)
-            chan.setLockscreenVisibility(Notification.VISIBILITY_PRIVATE)
+            chan.lightColor = Color.BLUE
+            chan.lockscreenVisibility = Notification.VISIBILITY_PRIVATE
 
             val manager: NotificationManager = (getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager)!!
             manager.createNotificationChannel(chan)
@@ -243,28 +267,28 @@ class EmpService : Service() ,MethodChannel.MethodCallHandler{
             val notificationBuilder: NotificationCompat.Builder = NotificationCompat.Builder(this, NOTIFICATION_CHANNEL_ID)
             val notification: Notification = notificationBuilder.setOngoing(true)
                     .setContentTitle("App is running in background")
-                    .setPriority(NotificationManager.IMPORTANCE_MIN)
+                    .setPriority(NotificationManager.IMPORTANCE_MAX)
                     .setCategory(Notification.CATEGORY_SERVICE)
+                .setVibrate(null)
                     .build()
-            startForeground(2, notification);
+            startForeground(1, notification);
         }else{
             val notificationBuilder: NotificationCompat.Builder = NotificationCompat.Builder(this, "example.permanence")
             val notification: Notification = notificationBuilder.setOngoing(true)
-                    .setContentTitle("App is running in background")
+                .setVibrate(null).setContentTitle("App is running in background")
 
 
                     .build()
-            startForeground(1, Notification())
+            startForeground(1, notification)
         }
+
+
     }
 
     override fun onLowMemory() {
         super.onLowMemory()
     }
 
-    override fun onStart(intent: Intent?, startId: Int) {
-        super.onStart(intent, startId)
-    }
 
     override fun onTrimMemory(level: Int) {
         super.onTrimMemory(level)
@@ -278,17 +302,16 @@ class EmpService : Service() ,MethodChannel.MethodCallHandler{
         super.attachBaseContext(newBase)
     }
 
+
     override fun onDestroy() {
         super.onDestroy()
-        if(mtimer!=null)
-        {
-            working =false
-            //            mtimer?.removeCallbacksAndMessages(null);
-        }
-        // var intent:Intent = Intent();
-        // intent.setAction("restartservice");
-        // intent.setClass(this,EmpBroadCast::class.java)
-        // this.sendBroadcast(intent)
+        val sharedPreferences: SharedPreferences = this.getSharedPreferences("EmpServiceSharedPrefFile",Context.MODE_PRIVATE)
+
+        closingService(sharedPreferences)
+        val intent:Intent = Intent();
+         intent.setAction("restartservice");
+         intent.setClass(this,EmpBroadCast::class.java)
+         this.sendBroadcast(intent)
 
     }
 
@@ -305,6 +328,7 @@ class EmpService : Service() ,MethodChannel.MethodCallHandler{
 //         this.sendBroadcast(intent)
 
     }
+
 
     override fun onMethodCall(call: MethodCall, result: MethodChannel.Result) {
 

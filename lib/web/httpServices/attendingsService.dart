@@ -4,7 +4,7 @@ import 'dart:convert';
 import 'package:signingapp/Modals/attendings.dart';
 
 import 'baseService.dart';
-import 'package:http/http.dart' as http;
+import 'package:dio/dio.dart';
 
 class AttendingsServices extends BaseService {
   // static Future<bool> get() async {
@@ -20,10 +20,10 @@ class AttendingsServices extends BaseService {
   // }
 
   static Future<bool> add(Attendings attending) async {
-    http.Response response = await (BaseService.makeRequest(
+    Response response = await (BaseService.makeRequest(
         BaseService.baseUri + 'attendings',
         bodyd: attending));
-    var s = json.decode(utf8.decode(response.bodyBytes));
+    var s = response.data;
     if (response.statusCode == 200 || response.statusCode == 201) {
       // Map<String, dynamic> responseMap = json.decode(response.body);
       // print(responseMap);

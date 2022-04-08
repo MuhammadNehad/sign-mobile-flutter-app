@@ -5,7 +5,7 @@ import 'package:signingapp/Modals/locations.dart';
 import 'package:signingapp/dbHelper/sqliteHelper.dart';
 import 'package:signingapp/web/httpServices/permissionsService.dart';
 import 'baseService.dart';
-import 'package:http/http.dart' as http;
+import 'package:dio/dio.dart';
 
 class EmpsLocationsServices extends BaseService {
   static Future<List<Locations>> getLocations() async {
@@ -25,10 +25,10 @@ class EmpsLocationsServices extends BaseService {
       }
     }
 
-    http.Response response = await (BaseService.makeRequest(
+    Response response = await (BaseService.makeRequest(
         BaseService.baseUri + 'EmpsLocations?$query',
         method: "GET"));
-    var responseMap = json.decode(utf8.decode(response.bodyBytes));
+    var responseMap =response.data;
     await db.deleteLocs();
     for (var e in responseMap) {
       var i = e;

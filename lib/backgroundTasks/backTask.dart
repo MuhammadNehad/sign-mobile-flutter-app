@@ -79,6 +79,7 @@ void saveLocations() async {
       Duration difference;
       Distance s = new Distance();
       myCode = sharedPrefs.getString("myCode");
+
       bool connected = await InternetConnection.checkConn();
       if (connected) {
         await EmpsServices.getEmplyeesViewServiceBCode(myCode);
@@ -120,6 +121,37 @@ void saveLocations() async {
               new LatLng(l.latitude, l.longitude));
 
           print("distance $meters");
+          if (sharedPrefs.containsKey("ShutDown") &&
+              sharedPrefs.getBool("ShutDown")) {
+            if (sharedPrefs.containsKey("shutdownTime")) {
+              String shutdownTimeStr = sharedPrefs.getString("shutdownTime");
+              DateTime shutdownTime = DateTime.parse(shutdownTimeStr);
+              DateTime now = DateTime.now().toUtc().add(Duration(hours: 2));
+              Duration shutdownTimediffer = now.difference(shutdownTime);
+              if (shutdownTimediffer.inMinutes >= 20) {
+                // await sharedPrefs.setBool(
+                //     "entering", !sharedPrefs.getBool("entering"));
+                addAttendings(param4, empId, locid, sharedPrefs);
+                if (attendingsL.length > 0) {
+                  addAttendings(
+                      !attendingsL.last.entering, empId, locid, sharedPrefs,
+                      natdt: shutdownTime.add(Duration(minutes: 20)));
+
+                  param4 = !attendingsL.last.entering;
+                } else {
+                  if (!sharedPrefs.containsKey("adding....")) {
+                    await sharedPrefs.setBool("adding....", true);
+
+                    addAttendings(!param4, empId, locid, sharedPrefs,
+                        natdt: shutdownTime.add(Duration(minutes: 20)));
+                  }
+                }
+                await sharedPrefs.setBool(
+                    "ShutDown", !sharedPrefs.getBool("ShutDown"));
+                param4 = !param4;
+              }
+            }
+          }
           // double distance = calculateDistance(
           //     locationData.latitude,
           //     locationData.longitude,
@@ -129,12 +161,12 @@ void saveLocations() async {
             await sharedPrefs.setString(
                 "lastTimeInTheZone....", nowUTC.toString());
 
-            // await np.showNotification("${mcloc.address}, IN");
             if (attendingsL.length > 0) {
               if (attendingsL.last.entering == false) {
                 if (!param4) {
                   if (!sharedPrefs.containsKey("adding....")) {
                     await sharedPrefs.setBool("adding....", true);
+                    await np.showNotification("${mcloc.address}, IN");
                     addAttendings(param4, empId, locid, sharedPrefs);
                   }
                 }
@@ -143,6 +175,7 @@ void saveLocations() async {
               if (!param4) {
                 if (!sharedPrefs.containsKey("adding....")) {
                   await sharedPrefs.setBool("adding....", true);
+                  await np.showNotification("${mcloc.address}, IN");
 
                   addAttendings(param4, empId, locid, sharedPrefs);
                 }
@@ -175,14 +208,14 @@ void saveLocations() async {
               checkAndAddAttendings(aOut);
             }
             attendingsL = await db.getAttendings();
-            await np.showNotification("${mcloc.address}, out");
             if (attendingsL.length > 0) {
               difference = lastTime.difference(nowUTC);
-              if (difference.inMinutes >= (mcloc.waitingTime / 60)) {
+              if (difference.inMinutes >= (mcloc.waitingTime ?? 1200 / 60)) {
                 if (attendingsL.last.entering == true) {
                   if (param4) {
                     if (!sharedPrefs.containsKey("adding....")) {
                       await sharedPrefs.setBool("adding....", true);
+                      await np.showNotification("${mcloc.address}, out");
 
                       addAttendings(param4, empId, locid, sharedPrefs);
                     }
@@ -191,10 +224,11 @@ void saveLocations() async {
               }
             } else {
               difference = datetime.difference(nowUTC);
-              if (difference.inMinutes >= (mcloc.waitingTime / 60)) {
+              if (difference.inMinutes >= (mcloc.waitingTime ?? 1200 / 60)) {
                 if (param4) {
                   if (!sharedPrefs.containsKey("adding....")) {
                     await sharedPrefs.setBool("adding....", true);
+                    await np.showNotification("${mcloc.address}, out");
 
                     addAttendings(param4, empId, locid, sharedPrefs);
                   }
@@ -204,7 +238,8 @@ void saveLocations() async {
           }
         } else {
           if (sharedPrefs.containsKey("locId") &&
-              sharedPrefs.getInt("locId") != null) {
+              sharedPrefs.getInt("locId") != null &&
+              sharedPrefs.getInt("locId") != 0) {
             datetime = sharedPrefs.getString("dateTime") != null
                 ? DateTime.parse(sharedPrefs.getString("dateTime"))
                 : nowUTC;
@@ -213,6 +248,36 @@ void saveLocations() async {
             String mLocAddress = sharedPrefs.getString("locAddress");
             DateTime lastTime =
                 DateTime.parse(sharedPrefs.getString("lastTimeInTheZone...."));
+            if (sharedPrefs.containsKey("ShutDown") &&
+                sharedPrefs.getBool("ShutDown")) {
+              if (sharedPrefs.containsKey("shutdownTime")) {
+                String shutdownTimeStr = sharedPrefs.getString("shutdownTime");
+                DateTime shutdownTime = DateTime.parse(shutdownTimeStr);
+                DateTime now = DateTime.now().toUtc().add(Duration(hours: 2));
+                Duration shutdownTimediffer = now.difference(shutdownTime);
+                if (shutdownTimediffer.inMinutes >= 20) {
+                  // await sharedPrefs.setBool(
+                  //     "entering", !sharedPrefs.getBool("entering"));
+                  if (attendingsL.length > 0) {
+                    addAttendings(
+                        attendingsL.last.entering, empId, locid, sharedPrefs,
+                        natdt: shutdownTime.add(Duration(minutes: 20)));
+
+                    param4 = !attendingsL.last.entering;
+                  } else {
+                    if (!sharedPrefs.containsKey("adding....")) {
+                      await sharedPrefs.setBool("adding....", true);
+
+                      addAttendings(param4, empId, locid, sharedPrefs,
+                          natdt: shutdownTime.add(Duration(minutes: 20)));
+                    }
+                  }
+                  await sharedPrefs.setBool(
+                      "ShutDown", !sharedPrefs.getBool("ShutDown"));
+                  param4 = !param4;
+                }
+              }
+            }
             if (nowUTC.day != lastTime.day) {
               Attendings aIn = Attendings();
               aIn
@@ -240,7 +305,7 @@ void saveLocations() async {
             await np.showNotification("$mLocAddress, out");
             if (attendingsL.length > 0) {
               difference = lastTime.difference(nowUTC);
-              if (difference.inMinutes >= (mcloc.waitingTime / 60)) {
+              if (difference.inMinutes.abs() >= (1200 / 60)) {
                 if (attendingsL.last.entering == true) {
                   if (param4) {
                     if (!sharedPrefs.containsKey("adding....")) {
@@ -252,8 +317,8 @@ void saveLocations() async {
                 }
               }
             } else {
-              difference = datetime.difference(nowUTC);
-              if (difference.inMinutes >= (mcloc.waitingTime / 60)) {
+              difference = nowUTC.difference(datetime);
+              if (difference.inMinutes >= 1200 / 60) {
                 if (param4) {
                   if (!sharedPrefs.containsKey("adding....")) {
                     await sharedPrefs.setBool("adding....", true);
@@ -282,14 +347,16 @@ void saveLocations() async {
 }
 
 void addAttendings(
-    bool entering, int empId, int locid, SharedPreferences shared) {
+    bool entering, int empId, int locid, SharedPreferences shared,
+    {DateTime natdt}) {
+  natdt = natdt ?? DateTime.now().toUtc().add(Duration(hours: 2));
   Attendings a = Attendings();
   a
     ..empKey = empId
     ..locationKey = locid
     ..entering = !entering
     ..leaveAfter = 0
-    ..atdt = DateTime.now().toUtc().add(Duration(hours: 2));
+    ..atdt = natdt;
 
   // elv.entering = a.entering;
   checkAndAddAttendings(a);
@@ -320,11 +387,11 @@ void checkConnectivity() async {
   });
 }
 
+void checkingFunction() {}
 void checkAndAddAttendings(Attendings attendings) async {
   await db.insertAttendings(attendings);
 }
 
-Future<dynamic> initEmplyee() async {}
 Future<Position> getLocation() async {
   Position position = await Geolocator.getCurrentPosition(
       desiredAccuracy: LocationAccuracy.best);

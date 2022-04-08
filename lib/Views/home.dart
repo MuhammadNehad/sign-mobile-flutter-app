@@ -1,22 +1,8 @@
 import 'dart:async';
-import 'dart:io';
-
 import 'package:flutter/material.dart';
-import 'package:hive/hive.dart';
-import 'package:signingapp/Modals/locations.dart';
-import 'package:signingapp/services/connectionService.dart';
-import 'package:signingapp/web/Boxes.dart';
-import 'package:signingapp/web/HiveModels/EmpsLocsView.dart';
-import 'package:signingapp/web/HiveModels/attendings.dart';
-import 'package:signingapp/web/httpServices/attendingsService.dart';
-import 'package:signingapp/web/httpServices/employeeService.dart';
-import 'package:provider/provider.dart';
 import 'dart:math';
-import 'package:signingapp/main.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:fluttertoast/fluttertoast.dart';
 import '../globals.dart' as globals;
-import 'package:latlong/latlong.dart';
 
 class Home extends StatelessWidget {
   const Home({Key key}) : super(key: key);

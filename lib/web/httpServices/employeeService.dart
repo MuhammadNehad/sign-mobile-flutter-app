@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'package:hive/hive.dart';
 import 'package:signingapp/Modals/EmpsLocsView.dart';
+import 'package:signingapp/Modals/UserLogin.dart';
 import 'package:signingapp/dbHelper/sqliteHelper.dart';
 import 'package:signingapp/web/Boxes.dart';
 import 'package:signingapp/web/HiveModels/Employee.dart';
@@ -9,17 +10,17 @@ import 'package:signingapp/web/HiveModels/Employee.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'baseService.dart';
-import 'package:http/http.dart' as http;
-import 'package:synchronized/synchronized.dart';
+import 'package:dio/dio.dart';
+
 import 'package:signingapp/globals.dart' as globals;
 
 class EmpsServices extends BaseService {
-  static Lock _lock = Lock();
   static Future<bool> checkexists(String phone) async {
-    http.Response response = await http.get(Uri.parse(
-        BaseService.baseUri + 'Emplyees/GetEmplyeesByPhone/' + phone));
+    Response response = await Dio().get(
+        Uri.parse(BaseService.baseUri + 'Emplyees/GetEmplyeesByPhone/' + phone)
+            .toString());
     if (response.statusCode == 200 || response.statusCode == 401) {
-      Map<String, dynamic> responseMap = json.decode(response.body);
+      Map<String, dynamic> responseMap = json.decode(response.data);
       print(responseMap);
       return responseMap['message'];
     } else {
@@ -28,10 +29,10 @@ class EmpsServices extends BaseService {
   }
 
   static Future<Emplyee> getUser(String phone) async {
-    http.Response response = await (BaseService.makeRequest(
+    Response response = await (BaseService.makeRequest(
         BaseService.baseUri + 'Emplyees/GetEmplyeesByPhone/' + phone,
         method: "GET"));
-    Map<String, dynamic> responseMap = json.decode(response.body);
+    Map<String, dynamic> responseMap = json.decode(response.data);
 
     if (response.statusCode == 200) {
       print(responseMap);
@@ -59,12 +60,12 @@ class EmpsServices extends BaseService {
   }
 
   static Future<List<Emps_Locs_View>> getEmplyeesViewService() async {
-    http.Response response = await (BaseService.makeRequest(
+    Response response = await (BaseService.makeRequest(
         BaseService.baseUri + 'EmpsLocView',
         method: "GET"));
 
     if (response.statusCode == 200) {
-      var responsedecode = utf8.decode(response.bodyBytes);
+      var responsedecode = utf8.decode(response.data);
       var responseMap = json.decode(responsedecode);
       for (var e in responseMap) {
         Emps_Locs_View emlv = Emps_Locs_View();
@@ -92,11 +93,11 @@ class EmpsServices extends BaseService {
   }
 
   static Future<Emps_Locs_View> getEmplyeesViewServiceBP(String phone) async {
-    http.Response response = await (BaseService.makeRequest(
+    Response response = await (BaseService.makeRequest(
         BaseService.baseUri + 'EmpsLocView/' + phone,
         method: "GET"));
 
-    var responseMap = json.decode(utf8.decode(response.bodyBytes));
+    var responseMap = response.data;
     Emps_Locs_View emplv;
     if (response.statusCode == 200) {
       for (var e in responseMap) {
@@ -115,24 +116,24 @@ class EmpsServices extends BaseService {
   }
 
   static Future<Emps_Locs_View> getEmplyeesViewServiceBCode(String code) async {
-    http.Response response = await (BaseService.makeRequest(
+    Response response = await (BaseService.makeRequest(
         BaseService.baseUri + 'EmpsLocView/GetByCode/$code',
         method: "GET"));
     // dbHelper db = dbHelper();
 
     var sharedPrefs = await SharedPreferences.getInstance();
     if (response.statusCode == 200) {
-      var responseMap = json.decode(utf8.decode(response.bodyBytes));
+      var responseMap = response.data;
       Emps_Locs_View emplv;
       for (var e in responseMap) {
         sharedPrefs.setString("myCode", code);
 
         emplv = Emps_Locs_View.fromMap(e);
-        sharedPrefs.setDouble("lat", emplv.LocLatitude);
-        sharedPrefs.setDouble("lng", emplv.locLngtude);
+        sharedPrefs.setDouble("lat", emplv.LocLatitude ?? 0.0);
+        sharedPrefs.setDouble("lng", emplv.locLngtude ?? 0.0);
         sharedPrefs.setBool("entering", emplv.entering);
         sharedPrefs.setInt("empId", emplv.empId);
-        sharedPrefs.setInt("locId", emplv.LOCID);
+        sharedPrefs.setInt("locId", emplv.LOCID ?? 0);
         sharedPrefs.setString("dateTime", emplv.dateTime.toString());
       }
 
@@ -143,10 +144,11 @@ class EmpsServices extends BaseService {
   }
 
   static Future<bool> login(String code, String passowrd) async {
-    http.Response response = await (BaseService.makeRequest(
-        BaseService.baseUri + 'Emplyees/Login/$code/$passowrd',
-        method: "GET"));
-    if (response.statusCode == 200) {
+    Response response = await (BaseService.makeRequest(
+        BaseService.baseUri + 'Emplyees/Login/',
+        method: "POST",
+        bodyd: UserLogin(code, passowrd)));
+    if (response.statusCode == 200 || response.statusCode == 204) {
       return true;
     } else {
       return false;
@@ -154,10 +156,10 @@ class EmpsServices extends BaseService {
   }
 
   static Future<Box<Emplyee>> getEmplyeesService() async {
-    http.Response response = await (BaseService.makeRequest(
+    Response response = await (BaseService.makeRequest(
         BaseService.baseUri + 'Emplyees',
         method: "GET"));
-    var responseMap = json.decode(utf8.decode(response.bodyBytes));
+    var responseMap = response.data;
     for (var e in responseMap) {
       var i = e;
       String id = i['id'].toString();

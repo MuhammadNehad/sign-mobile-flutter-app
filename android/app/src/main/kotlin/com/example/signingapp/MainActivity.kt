@@ -1,15 +1,25 @@
 package com.example.signingapp
 
+import android.Manifest
+import android.R
+import android.R.id.message
+import android.app.Activity
 import android.app.ActivityManager
-import android.content.Context
-import android.content.Intent
-import android.content.SharedPreferences
+import android.app.AlertDialog
+import android.content.*
+import android.content.pm.PackageManager
+import android.net.ConnectivityManager
+import android.net.Uri
+import android.os.Build
 import android.os.Bundle
-import android.os.Debug
+import android.provider.Settings
 import android.util.Log
+import android.widget.Toast
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.core.app.ActivityCompat
+import androidx.core.content.ContextCompat
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
-import io.flutter.plugin.common.MethodCall
 import io.flutter.plugin.common.MethodChannel
 
 
@@ -21,6 +31,14 @@ class MainActivity: FlutterActivity()  {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        val br: BroadcastReceiver = ShutDownReceiver();
+        val intentfilter:IntentFilter= IntentFilter(ConnectivityManager.CONNECTIVITY_ACTION)
+        intentfilter.addAction(Intent.ACTION_POWER_DISCONNECTED)
+        intentfilter.addAction(Intent.ACTION_POWER_CONNECTED)
+        intentfilter.addAction(Intent.ACTION_SHUTDOWN)
+        intentfilter.addAction(Intent.ACTION_BOOT_COMPLETED)
+        intentfilter.addAction(Intent.ACTION_REBOOT)
+        this.registerReceiver(br,intentfilter)
 //        Toast.makeText(this.getApplicationContext(),"foundWay", Toast.LENGTH_SHORT).show()
         MethodChannel(flutterEngine!!.dartExecutor.binaryMessenger,
                 "main_channel").setMethodCallHandler { call, result ->
@@ -55,7 +73,38 @@ class MainActivity: FlutterActivity()  {
             }
         }
 
+        MethodChannel(flutterEngine!!.dartExecutor.binaryMessenger,
+                "permissions").setMethodCallHandler { call, result ->
+            }
+        }
 
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        super.onActivityResult(requestCode, resultCode, data)
+    if(resultCode ==2)
+    {
+
+    }
+    }
+    override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        when(requestCode)
+        {
+            2->{
+                if((grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED))
+                {
+                    Toast.makeText(this,"Permission is granted",Toast.LENGTH_SHORT).show();
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                        shouldShowRequestPermissionRationale("We need to access background location to continue recording your efforts during working hours.")
+                    };
+                }else{
+                    Toast.makeText(this,"Permission is denied ",Toast.LENGTH_SHORT).show();
+
+                }
+                return
+            }        else -> {
+
+            }
+        }
     }
     private fun isMyServiceRunnign( serviceClass:Class<*>):Boolean
     {

@@ -11,21 +11,19 @@ import 'package:signingapp/backgroundTasks/runInbackGround.dart';
 import 'package:signingapp/dbHelper/sqliteHelper.dart';
 
 import 'package:signingapp/services/connectionService.dart';
-import 'package:signingapp/web/httpServices/permissionsService.dart';
 
 import 'web/httpServices/employeeService.dart';
-import 'package:permission_handler/permission_handler.dart' as ph;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'globals.dart' as globals;
 import 'viewHelpers/notifications.dart';
 import 'package:location/location.dart';
-import 'package:app_settings/app_settings.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   HttpOverrides.global = new MyHttpOverrides();
   globals.shared = await SharedPreferences.getInstance();
-
+  var s = globals.shared.containsKey("ShutDown");
+  var e = globals.shared.getBool("ShutDown");
   await globals.shared.setBool("still_running", false);
 
   // const MethodChannel empLocServiceReq =
@@ -46,6 +44,37 @@ void main() async {
   //   }
   // }
 //  await EmpsServices.getEmplyeesViewService();
+}
+
+locationService() async {
+  Location location = new Location();
+
+  location.serviceEnabled().then((_serviceEnabled) async {
+    if (!_serviceEnabled) {
+      _serviceEnabled = await location.requestService();
+      if (!_serviceEnabled) {
+        return;
+      }
+    }
+    PermissionStatus pGranted = await location.hasPermission();
+    if (pGranted == PermissionStatus.denied ||
+        pGranted == PermissionStatus.deniedForever) {
+      // await AppSettings.openLocationSettings(asAnotherTask: true);
+      pGranted = await location.hasPermission();
+      if (pGranted == PermissionStatus.denied ||
+          pGranted == PermissionStatus.deniedForever) {
+        pGranted = await location.requestPermission();
+        if (pGranted == PermissionStatus.granted ||
+            pGranted == PermissionStatus.grantedLimited) {
+          location.enableBackgroundMode(enable: true);
+        }
+      } else {
+        location.enableBackgroundMode(enable: true);
+      }
+    } else {
+      location.enableBackgroundMode(enable: true);
+    }
+  });
 }
 
 Future<void> locService() async {}
@@ -193,7 +222,7 @@ class _UnRegisteredViewState extends State<UnRegisteredView> {
         backgroundColor: Colors.red[50],
         body: Center(
             child: Container(
-          child: Text("make Sure You are registered in the company"),
+          child: Text("Make Sure You are registered By HR"),
         )));
   }
 }
@@ -211,6 +240,7 @@ class _ValidateMyCodeState extends State<ValidateMyCode> {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
+      debugShowCheckedModeBanner: false,
       home: Login(),
       routes: {
         "main": (BuildContext context) => MyApp(),
@@ -241,13 +271,25 @@ class _LoginState extends State<Login> {
   @override
   Widget build(BuildContext context) {
     String myCOde = globals.shared.getString("myCode");
-
+    locationService();
+    MethodChannel nativepermissions = MethodChannel("permissions");
+    try {
+      nativepermissions
+          .invokeMethod("LocationPermission")
+          .then((value) => {print(value)});
+    } on PlatformException catch (e) {
+      print(e);
+    }
     InternetConnection.checkConn().then((value) {
       if (value) {
         EmpsServices.getEmplyeesViewServiceBCode(myCOde).then((value) => {
               value != null && value.empCode != null
                   ? Navigator.of(context).pushNamed("main")
-                  : {}
+                  : {
+                      showDialog(
+                          context: context,
+                          builder: (builder) => UnRegisteredView())
+                    }
             });
       } else if (!value && myCOde != null && myCOde.isNotEmpty) {
         // Future.delayed(Duration(seconds: 4), () {
@@ -261,8 +303,8 @@ class _LoginState extends State<Login> {
             backgroundColor: Colors.red,
             textColor: Colors.white,
             fontSize: 16.0);
-        Future.delayed(
-            Duration.zero, () => Navigator.of(context).pushNamed("main"));
+        // Future.delayed(
+        //     Duration.zero, () => Navigator.of(context).pushNamed("main"));
       }
     });
 
