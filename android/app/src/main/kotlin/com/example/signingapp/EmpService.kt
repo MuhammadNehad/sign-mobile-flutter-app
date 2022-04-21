@@ -6,9 +6,7 @@ import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.Service
-import android.content.Context
-import android.content.Intent
-import android.content.SharedPreferences
+import android.content.*
 import android.content.pm.PackageManager
 import android.content.res.Configuration
 import android.graphics.Color
@@ -21,6 +19,7 @@ import io.flutter.plugin.common.MethodChannel
 import java.io.FileDescriptor
 import java.io.PrintWriter
 import android.location.Location
+import android.net.ConnectivityManager
 import androidx.core.app.ActivityCompat
 import com.google.android.gms.location.*
 import io.flutter.embedding.android.FlutterView
@@ -80,6 +79,7 @@ class EmpService : Service() ,MethodChannel.MethodCallHandler{
         TODO("Not yet implemented")
     }
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        restartReceiver()
         var sharedPreferences: SharedPreferences = this.getSharedPreferences("EmpServiceSharedPrefFile",Context.MODE_PRIVATE)
         try {
 
@@ -100,8 +100,8 @@ class EmpService : Service() ,MethodChannel.MethodCallHandler{
             Log.i(TAG, "service started ")
 
             fnv.getDartExecutor().executeDartCallback(args)
-            fuseLocationProvier=LocationServices.getFusedLocationProviderClient(this);
-            createLocationRequest();
+            // fuseLocationProvier=LocationServices.getFusedLocationProviderClient(this);
+            // createLocationRequest();
             mBackgroundChannel2 = MethodChannel(fnv.dartExecutor.binaryMessenger ,
                     "empLocService.Service")
 
@@ -133,7 +133,7 @@ class EmpService : Service() ,MethodChannel.MethodCallHandler{
 //        }
 //
 
-            if(!isWorking)
+            if(!isWorking || mtimer== null)
             {
                 if (mtimer == null) {
                     mtimer = Handler(Looper.getMainLooper());
@@ -168,18 +168,6 @@ class EmpService : Service() ,MethodChannel.MethodCallHandler{
 
                                 override fun success(result: Any?) {
                                     Log.i(TAG, "succedded ")
-                                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                                        val NOTIFICATION_CHANNEL_ID = "example.permanence"
-                                        val channelName = "Background Service"
-                                        val chan = NotificationChannel(NOTIFICATION_CHANNEL_ID, channelName, NotificationManager.IMPORTANCE_NONE)
-                                        chan.setLightColor(Color.BLUE)
-//                                chan.setLockscreenVisibility(Notification.VISIBILITY_PRIVATE)
-
-                                        val manager: NotificationManager = (getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager)!!
-                                        manager.createNotificationChannel(chan)
-
-                                    }else{
-                                    }
                                 }
 
                             })
@@ -189,17 +177,17 @@ class EmpService : Service() ,MethodChannel.MethodCallHandler{
                     });
                 }catch (ex:Exception)
                 {
+                    removeFlutterShared()
                     sharedPreferences = getSharedPreferences("EmpServiceSharedPrefFile",Context.MODE_PRIVATE)
                     val editor:SharedPreferences.Editor = sharedPreferences.edit()
                     editor.putBoolean("isServiceOn",false)
                     editor.apply()
                 }
-            }else
-            {
-
             }
         }catch ( ex:Exception)
         {
+            removeFlutterShared()
+
             sharedPreferences = getSharedPreferences("EmpServiceSharedPrefFile",Context.MODE_PRIVATE)
             val editor:SharedPreferences.Editor = sharedPreferences.edit()
             editor.putBoolean("isServiceOn",false)
@@ -208,6 +196,18 @@ class EmpService : Service() ,MethodChannel.MethodCallHandler{
         }
 
         return START_STICKY
+    }
+
+
+    fun removeFlutterShared()
+    {
+        val fluttersharedPreferences: SharedPreferences = context!!.getSharedPreferences("FlutterSharedPreferences",Context.MODE_PRIVATE)
+        if(fluttersharedPreferences.contains("flutter.started Process...."))
+        {
+            val fluttereditor:SharedPreferences.Editor = fluttersharedPreferences.edit()
+            fluttereditor.remove("flutter.started Process....")
+            fluttereditor.apply()
+        }
     }
     fun createLocationRequest()
     {
@@ -252,6 +252,23 @@ class EmpService : Service() ,MethodChannel.MethodCallHandler{
         super.dump(fd, writer, args)
     }
 
+    fun restartReceiver()
+    {
+        val br: BroadcastReceiver = ShutDownReceiver();
+        try{
+            this.unregisterReceiver(br);
+        }catch(ex:IllegalArgumentException)
+        {
+            ex.printStackTrace()
+        }
+        val intentfilter: IntentFilter = IntentFilter(ConnectivityManager.CONNECTIVITY_ACTION)
+        intentfilter.addAction(Intent.ACTION_POWER_DISCONNECTED)
+        intentfilter.addAction(Intent.ACTION_POWER_CONNECTED)
+        intentfilter.addAction(Intent.ACTION_SHUTDOWN)
+        intentfilter.addAction(Intent.ACTION_BOOT_COMPLETED)
+        intentfilter.addAction(Intent.ACTION_REBOOT)
+        this.registerReceiver(br,intentfilter)
+    }
     override fun onCreate() {
         super.onCreate()
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -263,7 +280,7 @@ class EmpService : Service() ,MethodChannel.MethodCallHandler{
 
             val manager: NotificationManager = (getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager)!!
             manager.createNotificationChannel(chan)
-
+            
             val notificationBuilder: NotificationCompat.Builder = NotificationCompat.Builder(this, NOTIFICATION_CHANNEL_ID)
             val notification: Notification = notificationBuilder.setOngoing(true)
                     .setContentTitle("App is running in background")
@@ -305,6 +322,8 @@ class EmpService : Service() ,MethodChannel.MethodCallHandler{
 
     override fun onDestroy() {
         super.onDestroy()
+        restartReceiver()
+        removeFlutterShared()
         val sharedPreferences: SharedPreferences = this.getSharedPreferences("EmpServiceSharedPrefFile",Context.MODE_PRIVATE)
 
         closingService(sharedPreferences)

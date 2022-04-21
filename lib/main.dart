@@ -1,17 +1,13 @@
 import 'dart:async';
-
 import 'dart:io';
-
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 import 'package:signingapp/Modals/EmpsLocsView.dart';
 import 'package:signingapp/backgroundTasks/runInbackGround.dart';
-
 import 'package:signingapp/dbHelper/sqliteHelper.dart';
-
 import 'package:signingapp/services/connectionService.dart';
-
+import 'Modals/UserLogin.dart';
 import 'web/httpServices/employeeService.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'globals.dart' as globals;
@@ -22,8 +18,8 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   HttpOverrides.global = new MyHttpOverrides();
   globals.shared = await SharedPreferences.getInstance();
-  var s = globals.shared.containsKey("ShutDown");
-  var e = globals.shared.getBool("ShutDown");
+  print("has shutdown:${globals.shared.containsKey("ShutDown")}");
+  print("has shutdown:${globals.shared.getBool("ShutDown")}");
   await globals.shared.setBool("still_running", false);
 
   // const MethodChannel empLocServiceReq =
@@ -85,7 +81,8 @@ Future<Emps_Locs_View> checkHiveBox(String myCOde) async {
   if (hemlv == null || hemlv.empCode == null) {
     bool conn = await InternetConnection.checkConn();
     if (conn) {
-      hemlv = await EmpsServices.getEmplyeesViewServiceBCode(myCOde);
+      hemlv = await EmpsServices.getEmplyeesViewServiceBCode(
+          myCOde, globals.getAuthData(globals.shared));
       return hemlv;
     }
   }
@@ -106,53 +103,19 @@ class MyAppView extends State<MyApp> {
   double radius = 100;
   @override
   void initState() {
-    // TODO: implement initState
     np.setOnNotificationClick((p) {});
     super.initState();
     // saveLocations();
     // initEmplyee();
-    Location location = new Location();
-
-    location.serviceEnabled().then((_serviceEnabled) async {
-      if (!_serviceEnabled) {
-        _serviceEnabled = await location.requestService();
-        if (!_serviceEnabled) {
-          return;
-        }
-      }
-      PermissionStatus pGranted = await location.hasPermission();
-      if (pGranted == PermissionStatus.denied) {
-        // await AppSettings.openLocationSettings(asAnotherTask: true);
-        pGranted = await location.hasPermission();
-        if (pGranted == PermissionStatus.denied) {
-          pGranted = await location.requestPermission();
-          if (pGranted == PermissionStatus.granted) {
-            await location
-                .enableBackgroundMode(enable: true)
-                .whenComplete(() => {});
-          }
-        }
-      }
-    });
+    locationService();
     RunDartInBackground.initialize();
-  }
-
-  Future<dynamic> methodHandler(MethodCall methodCall) async {
-    switch (methodCall.method) {
-      case "saveLocations":
-        List args = methodCall.arguments;
-        // saveLocations(
-        //     args[0], Location(args[1][0], args[1][1]), args[3], args[2]);
-        break;
-      default:
-    }
-    return new Future.value("");
   }
 
   Future<Emps_Locs_View> checkEmpinBox(String myCode) async {
     bool checkconnected = await InternetConnection.checkConn();
     if (checkconnected) {
-      await EmpsServices.getEmplyeesViewServiceBCode(myCode);
+      await EmpsServices.getEmplyeesViewServiceBCode(
+          myCode, globals.getAuthData(globals.shared));
     }
     List<Emps_Locs_View> hemlvL = (await db.empsLocsViewByCode(myCode));
     Emps_Locs_View empv = Emps_Locs_View();
@@ -165,24 +128,6 @@ class MyAppView extends State<MyApp> {
 
   @override
   Widget build(BuildContext context) {
-    // checkHiveBoxV();
-    // GeofencingManager.getRegisteredGeofenceIds().then((value) {
-    //   registeredGeofences = value;
-    //   if (registeredGeofences.length > 0) {}
-    // });
-
-    // locations? lastone;
-    int locationslength = 0;
-    // LocationService()
-    //     .locationStream.
-    //     .length
-    //     .then((value) => locationslength = value);
-    // LocationService().locationStream.timeout(Duration(seconds: 30));
-    // if (locationslength > 0) {
-    //   LocationService().locationStream.last.then((value) => lastone = value);
-    // } else {
-    //   lastone = new locations(latitude: 0, longtude: 0);
-    // }
     return Scaffold(
       body: Center(
         child: Container(
@@ -190,12 +135,6 @@ class MyAppView extends State<MyApp> {
         ),
       ),
     );
-
-    // StreamProvider<locations?>(
-    //   initialData: lastone,
-    //   create: (context) => LocationService().locationStream,
-    //   child: Home(),
-    // );
   }
 
   Future<Widget> address() async {
@@ -258,19 +197,17 @@ class Login extends StatefulWidget {
 
 class _LoginState extends State<Login> {
   final _formKey = GlobalKey<FormState>();
-  final _formPKey = GlobalKey<FormState>();
-  final _scaffoldKey = GlobalKey<ScaffoldMessengerState>();
   String code;
   String pass;
   @override
   void initState() {
-    // TODO: implement initState
     super.initState();
   }
 
   @override
   Widget build(BuildContext context) {
     String myCOde = globals.shared.getString("myCode");
+    String token = globals.shared.getString("usertoken");
     locationService();
     MethodChannel nativepermissions = MethodChannel("permissions");
     try {
@@ -282,16 +219,26 @@ class _LoginState extends State<Login> {
     }
     InternetConnection.checkConn().then((value) {
       if (value) {
-        EmpsServices.getEmplyeesViewServiceBCode(myCOde).then((value) => {
-              value != null && value.empCode != null
-                  ? Navigator.of(context).pushNamed("main")
-                  : {
-                      showDialog(
-                          context: context,
-                          builder: (builder) => UnRegisteredView())
-                    }
-            });
-      } else if (!value && myCOde != null && myCOde.isNotEmpty) {
+        EmpsServices.getEmplyeesViewServiceBCode(
+                myCOde, globals.getAuthData(globals.shared))
+            .then((value) => {
+                  value != null &&
+                          value.empCode != null &&
+                          token != null &&
+                          token.isNotEmpty
+                      ? Navigator.of(context).pushNamed("main")
+                      : {
+                          // showDialog(
+                          //     context: context,
+                          //     builder: (builder) => UnRegisteredView())
+                        }
+                });
+      } else if (!value &&
+          myCOde != null &&
+          myCOde.isNotEmpty &&
+          myCOde.isNotEmpty &&
+          token != null &&
+          token.isNotEmpty) {
         // Future.delayed(Duration(seconds: 4), () {
         //   Navigator.push(context, MaterialPageRoute(builder: (con) => MyApp()));
         // });
@@ -303,8 +250,8 @@ class _LoginState extends State<Login> {
             backgroundColor: Colors.red,
             textColor: Colors.white,
             fontSize: 16.0);
-        // Future.delayed(
-        //     Duration.zero, () => Navigator.of(context).pushNamed("main"));
+        Future.delayed(
+            Duration.zero, () => Navigator.of(context).pushNamed("main"));
       }
     });
 
@@ -347,6 +294,7 @@ class _LoginState extends State<Login> {
                   Padding(
                     padding: const EdgeInsets.all(8.0),
                     child: TextFormField(
+                      obscureText: true,
                       decoration: InputDecoration(
                           hintText: "Enter Password",
                           border: new OutlineInputBorder(
@@ -373,10 +321,12 @@ class _LoginState extends State<Login> {
                           if (_formKey.currentState.validate()) {
                             InternetConnection.checkConn().then((value) {
                               if (value) {
-                                EmpsServices.login(code, pass).then((value) {
+                                EmpsServices.login(UserLogin(code, pass))
+                                    .then((value) {
                                   if (value) {
                                     EmpsServices.getEmplyeesViewServiceBCode(
-                                            code)
+                                            code,
+                                            globals.getAuthData(globals.shared))
                                         .then((value) => {
                                               value != null &&
                                                       value.empCode != null
@@ -408,11 +358,9 @@ class _LoginState extends State<Login> {
 class MyHttpOverrides extends HttpOverrides {
   @override
   HttpClient createHttpClient(SecurityContext context) {
-    // TODO: implement createHttpClient
     return super.createHttpClient(context)
       ..badCertificateCallback =
           (X509Certificate cert, String host, int port) => true;
-    ;
   }
 }
 

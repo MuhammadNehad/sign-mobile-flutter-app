@@ -11,45 +11,41 @@ import 'package:signingapp/viewHelpers/notifications.dart';
 import 'package:latlong/latlong.dart';
 import 'package:signingapp/services/connectionService.dart';
 import 'package:signingapp/web/httpServices/attendingsService.dart';
-import 'package:permission_handler/permission_handler.dart';
 import 'package:signingapp/web/httpServices/employeeService.dart';
 import 'package:signingapp/web/httpServices/locationsService.dart';
 import 'package:synchronized/synchronized.dart';
+
+import '../globals.dart';
 
 Future<dbHelper> databascall() async {
   return dbHelper();
 }
 
 final _lock = Lock();
-
+SharedPreferences sharedPrefs;
 void callbackDispatcher() {
   const MethodChannel empLocService = MethodChannel("empLocService.Service");
   WidgetsFlutterBinding.ensureInitialized();
   try {
     empLocService.setMethodCallHandler((methodCall) async {
-      var sharedPrefs = await SharedPreferences.getInstance();
-      List args = methodCall.arguments;
-      // retreive callback instance for handle
-      final Function callbackthis = PluginUtilities.getCallbackFromHandle(
-          CallbackHandle.fromRawHandle(args[0]));
-      assert(callbackthis != null);
-      switch (methodCall.method) {
-        case "saveLocations":
-          if (await Permission.location.isRestricted) {
-            // Map<Permission, PermissionStatus> statuses = await [
-            //   Permission.location,
-            // ].request();
-            // The OS restricts access, for example because of parental controls.
-            // BackgroundLocation.startLocationService(distanceFilter: 10.0);
-          } else {
-            // BackgroundLocation.startLocationService(distanceFilter: 0.0);
-            // BackgroundLocation.setAndroidConfiguration(4);
-          }
-          saveLocations();
+      try {
+        sharedPrefs = await SharedPreferences.getInstance();
+        List args = methodCall.arguments;
+        // retreive callback instance for handle
+        final Function callbackthis = PluginUtilities.getCallbackFromHandle(
+            CallbackHandle.fromRawHandle(args[0]));
+        assert(callbackthis != null);
+        switch (methodCall.method) {
+          case "saveLocations":
+            await saveLocations();
 
-          break;
-        default:
-          break;
+            break;
+          default:
+            break;
+        }
+      } catch (e) {
+        await sharedPrefs.remove("started Process....");
+        print(e);
       }
       // callbackthis(args[0] as String);
     });
@@ -59,9 +55,7 @@ void callbackDispatcher() {
   }
 }
 
-void saveLocations() async {
-  var sharedPrefs = await SharedPreferences.getInstance();
-
+Future<void> saveLocations() async {
   if (!sharedPrefs.containsKey("started Process....")) {
     sharedPrefs.setBool("started Process....", true);
 
@@ -82,20 +76,16 @@ void saveLocations() async {
 
       bool connected = await InternetConnection.checkConn();
       if (connected) {
-        await EmpsServices.getEmplyeesViewServiceBCode(myCode);
-        mlocs = await EmpsLocationsServices.getLocations();
+        await EmpsServices.getEmplyeesViewServiceBCode(
+            myCode, getAuthData(sharedPrefs));
+        mlocs =
+            await EmpsLocationsServices.getLocations(getAuthData(sharedPrefs));
       } else {
         mlocs = await db.locations();
       }
       l = await getLocation();
 
       if (mlocs.isNotEmpty && l.latitude != null && l.longitude != null) {
-        var metT = s
-            .as(
-                LengthUnit.Meter,
-                new LatLng(30.075397371612784, 31.64544648610287),
-                new LatLng(l.latitude, l.longitude))
-            .abs();
         mcloc = mlocs.firstWhere(
             (mloc) =>
                 s
@@ -131,20 +121,16 @@ void saveLocations() async {
               if (shutdownTimediffer.inMinutes >= 20) {
                 // await sharedPrefs.setBool(
                 //     "entering", !sharedPrefs.getBool("entering"));
-                addAttendings(param4, empId, locid, sharedPrefs);
+                await addAttendings(param4, empId, locid, sharedPrefs);
                 if (attendingsL.length > 0) {
-                  addAttendings(
+                  await addAttendings(
                       !attendingsL.last.entering, empId, locid, sharedPrefs,
                       natdt: shutdownTime.add(Duration(minutes: 20)));
 
                   param4 = !attendingsL.last.entering;
                 } else {
-                  if (!sharedPrefs.containsKey("adding....")) {
-                    await sharedPrefs.setBool("adding....", true);
-
-                    addAttendings(!param4, empId, locid, sharedPrefs,
-                        natdt: shutdownTime.add(Duration(minutes: 20)));
-                  }
+                  await addAttendings(!param4, empId, locid, sharedPrefs,
+                      natdt: shutdownTime.add(Duration(minutes: 20)));
                 }
                 await sharedPrefs.setBool(
                     "ShutDown", !sharedPrefs.getBool("ShutDown"));
@@ -164,21 +150,16 @@ void saveLocations() async {
             if (attendingsL.length > 0) {
               if (attendingsL.last.entering == false) {
                 if (!param4) {
-                  if (!sharedPrefs.containsKey("adding....")) {
-                    await sharedPrefs.setBool("adding....", true);
-                    await np.showNotification("${mcloc.address}, IN");
-                    addAttendings(param4, empId, locid, sharedPrefs);
-                  }
+                  await np.showNotification("${mcloc.address}, IN");
+                  await addAttendings(param4, empId, locid, sharedPrefs);
                 }
               }
             } else {
               if (!param4) {
-                if (!sharedPrefs.containsKey("adding....")) {
-                  await sharedPrefs.setBool("adding....", true);
-                  await np.showNotification("${mcloc.address}, IN");
+                await sharedPrefs.setBool("adding....", true);
+                await np.showNotification("${mcloc.address}, IN");
 
-                  addAttendings(param4, empId, locid, sharedPrefs);
-                }
+                await addAttendings(param4, empId, locid, sharedPrefs);
               }
             }
           } else {
@@ -195,7 +176,7 @@ void saveLocations() async {
                     DateTime(nowUTC.year, nowUTC.month, nowUTC.day - 1, 11, 59);
 
               // elv.entering = a.entering;
-              checkAndAddAttendings(aIn);
+              await checkAndAddAttendings(aIn);
               Attendings aOut = Attendings();
               aOut
                 ..empKey = empId
@@ -205,7 +186,7 @@ void saveLocations() async {
                 ..atdt = DateTime(nowUTC.year, nowUTC.month, nowUTC.day);
 
               // elv.entering = a.entering;
-              checkAndAddAttendings(aOut);
+              await checkAndAddAttendings(aOut);
             }
             attendingsL = await db.getAttendings();
             if (attendingsL.length > 0) {
@@ -213,12 +194,9 @@ void saveLocations() async {
               if (difference.inMinutes >= (mcloc.waitingTime ?? 1200 / 60)) {
                 if (attendingsL.last.entering == true) {
                   if (param4) {
-                    if (!sharedPrefs.containsKey("adding....")) {
-                      await sharedPrefs.setBool("adding....", true);
-                      await np.showNotification("${mcloc.address}, out");
+                    await np.showNotification("${mcloc.address}, out");
 
-                      addAttendings(param4, empId, locid, sharedPrefs);
-                    }
+                    await addAttendings(param4, empId, locid, sharedPrefs);
                   }
                 }
               }
@@ -226,12 +204,9 @@ void saveLocations() async {
               difference = datetime.difference(nowUTC);
               if (difference.inMinutes >= (mcloc.waitingTime ?? 1200 / 60)) {
                 if (param4) {
-                  if (!sharedPrefs.containsKey("adding....")) {
-                    await sharedPrefs.setBool("adding....", true);
-                    await np.showNotification("${mcloc.address}, out");
+                  await np.showNotification("${mcloc.address}, out");
 
-                    addAttendings(param4, empId, locid, sharedPrefs);
-                  }
+                  await addAttendings(param4, empId, locid, sharedPrefs);
                 }
               }
             }
@@ -240,7 +215,8 @@ void saveLocations() async {
           if (sharedPrefs.containsKey("locId") &&
               sharedPrefs.getInt("locId") != null &&
               sharedPrefs.getInt("locId") != 0) {
-            datetime = sharedPrefs.getString("dateTime") != null
+            datetime = sharedPrefs.containsKey("dateTime") &&
+                    sharedPrefs.getString("dateTime") != null
                 ? DateTime.parse(sharedPrefs.getString("dateTime"))
                 : nowUTC;
 
@@ -248,6 +224,7 @@ void saveLocations() async {
             String mLocAddress = sharedPrefs.getString("locAddress");
             DateTime lastTime =
                 DateTime.parse(sharedPrefs.getString("lastTimeInTheZone...."));
+
             if (sharedPrefs.containsKey("ShutDown") &&
                 sharedPrefs.getBool("ShutDown")) {
               if (sharedPrefs.containsKey("shutdownTime")) {
@@ -259,7 +236,7 @@ void saveLocations() async {
                   // await sharedPrefs.setBool(
                   //     "entering", !sharedPrefs.getBool("entering"));
                   if (attendingsL.length > 0) {
-                    addAttendings(
+                    await addAttendings(
                         attendingsL.last.entering, empId, locid, sharedPrefs,
                         natdt: shutdownTime.add(Duration(minutes: 20)));
 
@@ -268,7 +245,7 @@ void saveLocations() async {
                     if (!sharedPrefs.containsKey("adding....")) {
                       await sharedPrefs.setBool("adding....", true);
 
-                      addAttendings(param4, empId, locid, sharedPrefs,
+                      await addAttendings(param4, empId, locid, sharedPrefs,
                           natdt: shutdownTime.add(Duration(minutes: 20)));
                     }
                   }
@@ -278,41 +255,18 @@ void saveLocations() async {
                 }
               }
             }
-            if (nowUTC.day != lastTime.day) {
-              Attendings aIn = Attendings();
-              aIn
-                ..empKey = empId
-                ..locationKey = locid
-                ..entering = false
-                ..leaveAfter = 0
-                ..atdt =
-                    DateTime(nowUTC.year, nowUTC.month, nowUTC.day - 1, 11, 59);
 
-              // elv.entering = a.entering;
-              checkAndAddAttendings(aIn);
-              Attendings aOut = Attendings();
-              aOut
-                ..empKey = empId
-                ..locationKey = locid
-                ..entering = true
-                ..leaveAfter = 0
-                ..atdt = DateTime(nowUTC.year, nowUTC.month, nowUTC.day);
-
-              // elv.entering = a.entering;
-              checkAndAddAttendings(aOut);
-            }
             attendingsL = await db.getAttendings();
-            await np.showNotification("$mLocAddress, out");
+
             if (attendingsL.length > 0) {
               difference = lastTime.difference(nowUTC);
               if (difference.inMinutes.abs() >= (1200 / 60)) {
                 if (attendingsL.last.entering == true) {
                   if (param4) {
-                    if (!sharedPrefs.containsKey("adding....")) {
-                      await sharedPrefs.setBool("adding....", true);
-
-                      addAttendings(param4, empId, locid, sharedPrefs);
+                    if (mLocAddress != null) {
+                      await np.showNotification("$mLocAddress, out");
                     }
+                    await addAttendings(param4, empId, locid, sharedPrefs);
                   }
                 }
               }
@@ -320,11 +274,10 @@ void saveLocations() async {
               difference = nowUTC.difference(datetime);
               if (difference.inMinutes >= 1200 / 60) {
                 if (param4) {
-                  if (!sharedPrefs.containsKey("adding....")) {
-                    await sharedPrefs.setBool("adding....", true);
-
-                    addAttendings(param4, empId, locid, sharedPrefs);
+                  if (mLocAddress != null) {
+                    await np.showNotification("$mLocAddress, out");
                   }
+                  await addAttendings(param4, empId, locid, sharedPrefs);
                 }
               }
             }
@@ -332,23 +285,27 @@ void saveLocations() async {
         }
       }
     } catch (e) {
-      await sharedPrefs.remove("adding....");
       await sharedPrefs.remove("started Process....");
       print(e);
-
-      throw (e);
     }
     if (!sharedPrefs.containsKey("loading data....")) {
       sharedPrefs.setBool("loading data....", true);
-      checkConnectivity();
+      try {
+        checkConnectivity();
+      } catch (e) {
+        await sharedPrefs.remove("adding....");
+        await sharedPrefs.remove("started Process....");
+        print(e);
+      }
     }
     await sharedPrefs.remove("started Process....");
   }
+  return 0;
 }
 
-void addAttendings(
+Future<void> addAttendings(
     bool entering, int empId, int locid, SharedPreferences shared,
-    {DateTime natdt}) {
+    {DateTime natdt}) async {
   natdt = natdt ?? DateTime.now().toUtc().add(Duration(hours: 2));
   Attendings a = Attendings();
   a
@@ -359,7 +316,7 @@ void addAttendings(
     ..atdt = natdt;
 
   // elv.entering = a.entering;
-  checkAndAddAttendings(a);
+  await checkAndAddAttendings(a);
 }
 
 void checkConnectivity() async {
@@ -372,7 +329,8 @@ void checkConnectivity() async {
 
         for (int i = 0; i < attendings.length; i++) {
           try {
-            bool succeeded = await AttendingsServices.add(attendings[i]);
+            bool succeeded = await AttendingsServices.add(
+                attendings[i], getAuthData(sharedPrefs));
             if (succeeded) {
               await db.deleteAttendings(attendings[i]);
             }
@@ -388,7 +346,7 @@ void checkConnectivity() async {
 }
 
 void checkingFunction() {}
-void checkAndAddAttendings(Attendings attendings) async {
+Future<void> checkAndAddAttendings(Attendings attendings) async {
   await db.insertAttendings(attendings);
 }
 

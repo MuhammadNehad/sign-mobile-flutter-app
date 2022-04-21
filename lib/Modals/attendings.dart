@@ -1,4 +1,5 @@
 class Attendings {
+  // ignore: non_constant_identifier_names
   int Id;
 
   int empKey;

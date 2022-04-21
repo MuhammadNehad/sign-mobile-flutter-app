@@ -1,9 +1,6 @@
 package com.example.signingapp
 
-import android.Manifest
-import android.R
-import android.R.id.message
-import android.app.Activity
+
 import android.app.ActivityManager
 import android.app.AlertDialog
 import android.content.*
@@ -15,9 +12,6 @@ import android.os.Bundle
 import android.provider.Settings
 import android.util.Log
 import android.widget.Toast
-import androidx.activity.result.contract.ActivityResultContracts
-import androidx.core.app.ActivityCompat
-import androidx.core.content.ContextCompat
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
@@ -32,6 +26,12 @@ class MainActivity: FlutterActivity()  {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         val br: BroadcastReceiver = ShutDownReceiver();
+        try{
+            this.unregisterReceiver(br);
+        }catch(ex:IllegalArgumentException)
+        {
+            ex.printStackTrace()
+        }
         val intentfilter:IntentFilter= IntentFilter(ConnectivityManager.CONNECTIVITY_ACTION)
         intentfilter.addAction(Intent.ACTION_POWER_DISCONNECTED)
         intentfilter.addAction(Intent.ACTION_POWER_CONNECTED)

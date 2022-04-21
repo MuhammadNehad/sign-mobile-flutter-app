@@ -1,11 +1,8 @@
 import 'dart:async';
 import 'dart:convert';
-import 'package:hive/hive.dart';
 import 'package:signingapp/Modals/EmpsLocsView.dart';
 import 'package:signingapp/Modals/UserLogin.dart';
 import 'package:signingapp/dbHelper/sqliteHelper.dart';
-import 'package:signingapp/web/Boxes.dart';
-import 'package:signingapp/web/HiveModels/Employee.dart';
 
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -23,37 +20,6 @@ class EmpsServices extends BaseService {
       Map<String, dynamic> responseMap = json.decode(response.data);
       print(responseMap);
       return responseMap['message'];
-    } else {
-      throw ('unknown Error Occured');
-    }
-  }
-
-  static Future<Emplyee> getUser(String phone) async {
-    Response response = await (BaseService.makeRequest(
-        BaseService.baseUri + 'Emplyees/GetEmplyeesByPhone/' + phone,
-        method: "GET"));
-    Map<String, dynamic> responseMap = json.decode(response.data);
-
-    if (response.statusCode == 200) {
-      print(responseMap);
-      String id = responseMap['id'];
-      String phoneNum = responseMap['phone'];
-      String email = responseMap['email'];
-      String name = responseMap['name'];
-      String locationId = responseMap['locationKey'];
-      if (!Hive.box<Emplyee>("employees").isOpen) {
-        Hive.openBox<Emplyee>("employees");
-      }
-      await Hive.box<Emplyee>("employees").put(
-          id,
-          Emplyee(
-              id: id,
-              name: name,
-              phone: phoneNum,
-              email: email,
-              locationKey: int.parse(locationId)));
-      Emplyee emp = Hive.box<Emplyee>("employees").get("employee");
-      return emp;
     } else {
       throw ('unknown Error Occured');
     }
@@ -81,8 +47,7 @@ class EmpsServices extends BaseService {
           ..ELocaddress = e['eLocaddress']
           ..totalHours = e['totalHours']
           ..entering = e['entering'];
-        await Hive.box<Emps_Locs_View>("Emps_Locs_View")
-            .put(emlv.empCode, emlv);
+
         print(responseMap);
       }
       List<Emps_Locs_View> emp = [];
@@ -115,9 +80,15 @@ class EmpsServices extends BaseService {
     }
   }
 
-  static Future<Emps_Locs_View> getEmplyeesViewServiceBCode(String code) async {
+  static Future<Emps_Locs_View> getEmplyeesViewServiceBCode(
+      String code, Map<String, String> authenticatedata) async {
     Response response = await (BaseService.makeRequest(
         BaseService.baseUri + 'EmpsLocView/GetByCode/$code',
+        mergeDefaultHeader: true,
+        extraHeaders: {
+          "Authorization":
+              "Bearer ${base64Url.encode(utf8.encode('${authenticatedata["token"]}:${authenticatedata["username"]}:${authenticatedata["password"]}:${authenticatedata["ExpiryDate"]}'))}"
+        },
         method: "GET"));
     // dbHelper db = dbHelper();
 
@@ -131,7 +102,13 @@ class EmpsServices extends BaseService {
         emplv = Emps_Locs_View.fromMap(e);
         sharedPrefs.setDouble("lat", emplv.LocLatitude ?? 0.0);
         sharedPrefs.setDouble("lng", emplv.locLngtude ?? 0.0);
-        sharedPrefs.setBool("entering", emplv.entering);
+        if (!sharedPrefs.containsKey("lastTimeInTheZone....") ||
+            sharedPrefs.getString("lastTimeInTheZone....") == null) {
+          sharedPrefs.setBool("entering", false);
+        } else {
+          sharedPrefs.setBool("entering", emplv.entering);
+        }
+
         sharedPrefs.setInt("empId", emplv.empId);
         sharedPrefs.setInt("locId", emplv.LOCID ?? 0);
         sharedPrefs.setString("dateTime", emplv.dateTime.toString());
@@ -143,48 +120,77 @@ class EmpsServices extends BaseService {
     }
   }
 
-  static Future<bool> login(String code, String passowrd) async {
+  static Future<bool> login(UserLogin userLogin) async {
     Response response = await (BaseService.makeRequest(
-        BaseService.baseUri + 'Emplyees/Login/',
+        BaseService.baseUri + 'Authenticate',
+        bodyd: FormData.fromMap(
+            {'code': userLogin.code, 'password': userLogin.password}),
         method: "POST",
-        bodyd: UserLogin(code, passowrd)));
+        fromForm: true));
+    var responseMap = response.data;
+    globals.shared.setString("usertoken", responseMap["token"]["value"]);
+    globals.shared.setString("password", responseMap["user"]["password"]);
+    globals.shared.setString(
+        "ExpiryDate", responseMap["token"]["expiryDate"].replaceAll(':', '/'));
+    if ((response.statusCode == 200 || response.statusCode == 204) &&
+        responseMap["user"]["loggedIn"] != 1) {
+      if (await setOnline(
+          responseMap["user"]["id"], true, responseMap["user"]["empCode"], {
+        "Authorization":
+            "Bearer ${base64Url.encode(utf8.encode('${responseMap["token"]["value"]}:${responseMap["user"]["empCode"]}:${responseMap["user"]["password"]}:${responseMap["token"]["expiryDate"]}'))}"
+      })) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  static Future<bool> setOnline(int id, bool isOnline, String empCode,
+      Map<String, String> authenticatedata) async {
+    Response response = await (BaseService.makeRequest(
+        BaseService.baseUri + 'Authenticate/setOnline/$id',
+        bodyd: FormData.fromMap({'id': id, 'empCode': empCode}),
+        mergeDefaultHeader: true,
+        extraHeaders: authenticatedata,
+        method: "PUT"));
     if (response.statusCode == 200 || response.statusCode == 204) {
+      globals.shared.setInt("isOnline", isOnline ? 1 : 0);
       return true;
     } else {
       return false;
     }
   }
 
-  static Future<Box<Emplyee>> getEmplyeesService() async {
-    Response response = await (BaseService.makeRequest(
-        BaseService.baseUri + 'Emplyees',
-        method: "GET"));
-    var responseMap = response.data;
-    for (var e in responseMap) {
-      var i = e;
-      String id = i['id'].toString();
-      String phoneNum = i['phone'];
-      String email = i['email'];
-      String name = i['name'];
-      String locationId = i['locationKey'].toString();
-      if (!Hive.box<Emplyee>("employees").isOpen) {
-        Hive.openBox<Emplyee>("employees");
-      }
-      await Hive.box<Emplyee>("employees").put(
-          id,
-          Emplyee(
-              id: id,
-              name: name,
-              phone: phoneNum,
-              email: email,
-              locationKey: int.parse(locationId)));
-      print(responseMap);
-    }
-    if (response.statusCode == 200) {
-      Box<Emplyee> emp = Boxes.getEmployees();
-      return emp;
-    } else {
-      throw ('unknown Error Occured');
-    }
-  }
+  // static Future<Box<Emplyee>> getEmplyeesService() async {
+  //   Response response = await (BaseService.makeRequest(
+  //       BaseService.baseUri + 'Emplyees',
+  //       method: "GET"));
+  //   var responseMap = response.data;
+  //   for (var e in responseMap) {
+  //     var i = e;
+  //     String id = i['id'].toString();
+  //     String phoneNum = i['phone'];
+  //     String email = i['email'];
+  //     String name = i['name'];
+  //     String locationId = i['locationKey'].toString();
+  //     if (!Hive.box<Emplyee>("employees").isOpen) {
+  //       Hive.openBox<Emplyee>("employees");
+  //     }
+  //     await Hive.box<Emplyee>("employees").put(
+  //         id,
+  //         Emplyee(
+  //             id: id,
+  //             name: name,
+  //             phone: phoneNum,
+  //             email: email,
+  //             locationKey: int.parse(locationId)));
+  //     print(responseMap);
+  //   }
+  //   if (response.statusCode == 200) {
+  //     Box<Emplyee> emp = Boxes.getEmployees();
+  //     return emp;
+  //   } else {
+  //     throw ('unknown Error Occured');
+  //   }
+  // }
 }

@@ -42,7 +42,7 @@ class ShutDownReceiver : BroadcastReceiver() {
             Toast.makeText(context, "Booted", Toast.LENGTH_SHORT).show()
 
             val myCOde:String? = sharedPreferences.getString("flutter.myCode",null);
-            if(myCOde.isNullOrEmpty()) {
+            if(!myCOde.isNullOrEmpty()) {
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                     context?.startForegroundService(Intent(context, EmpService::class.java))
                 } else {

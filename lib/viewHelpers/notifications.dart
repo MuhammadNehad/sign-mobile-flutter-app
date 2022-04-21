@@ -1,12 +1,14 @@
+// ignore_for_file: non_constant_identifier_names
+
 import 'dart:io';
 
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
-import 'package:rxdart/subjects.dart';
+// import 'package:rxdart/subjects.dart';
 
 class NotificationPlugin {
   FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin;
-  final BehaviorSubject<ReceivedNotificaiton> didReceivelNS =
-      BehaviorSubject<ReceivedNotificaiton>();
+  // final BehaviorSubject<ReceivedNotificaiton> didReceivelNS =
+  //     BehaviorSubject<ReceivedNotificaiton>();
   var initializeSettings;
   NotificationPlugin._() {
     init();
@@ -29,7 +31,7 @@ class NotificationPlugin {
         onDidReceiveLocalNotification: (id, title, body, payload) async {
           ReceivedNotificaiton rn =
               ReceivedNotificaiton(id, title, body, payload);
-          didReceivelNS.add(rn);
+          // didReceivelNS.add(rn);
         });
     initializeSettings = InitializationSettings(
         android: initializationSettingsAndroid, iOS: initializationSettingsIOS);
@@ -45,11 +47,11 @@ class NotificationPlugin {
         );
   }
 
-  setListenerToLowerVersions(Function ONTLV) {
-    didReceivelNS.listen((value) {
-      ONTLV(value);
-    });
-  }
+  // setListenerToLowerVersions(Function ONTLV) {
+  //   didReceivelNS.listen((value) {
+  //     ONTLV(value);
+  //   });
+  // }
 
   setOnNotificationClick(Function ONC) async {
     flutterLocalNotificationsPlugin.initialize(initializeSettings,
@@ -59,8 +61,8 @@ class NotificationPlugin {
   }
 
   Future<void> showNotification(String body) async {
-    var acs =
-        AndroidNotificationDetails('channelId', 'Name', 'channelDescription');
+    var acs = AndroidNotificationDetails('channelId', 'Name',
+        channelDescription: 'channelDescription');
     var ics = IOSNotificationDetails();
     var pcs = NotificationDetails(android: acs, iOS: ics);
     await flutterLocalNotificationsPlugin.show(0, "app", body, pcs,

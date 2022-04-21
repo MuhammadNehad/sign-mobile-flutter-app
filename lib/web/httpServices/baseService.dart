@@ -1,11 +1,10 @@
 import 'dart:convert';
-import 'dart:io';
 
 import 'package:dio/dio.dart';
 
 class BaseService {
-  var http = Dio();
-  static const baseUri = 'http://62.135.109.243:3232/api/';
+  static var http = Dio();
+  static const baseUri = 'http://62.135.109.243/api/';
   static final Map<String, String> header = {
     'Content-Type': "application/json; charset=UTF-8"
   };
@@ -13,15 +12,21 @@ class BaseService {
       {String method = 'POST',
       bodyd,
       mergeDefaultHeader = true,
-      Map<String, String> extraHeaders}) async {
+      Map<String, String> extraHeaders,
+      bool fromForm = false}) async {
     try {
       extraHeaders ??= {};
       var sentHeaders = header;
+      if (extraHeaders.entries.length > 0) {
+        sentHeaders.addAll(extraHeaders);
+      }
+
       switch (method) {
         case 'POST':
           bodyd ??= {};
           return await Dio().post(Uri.parse(url).toString(),
-              options: Options(headers: sentHeaders), data: jsonEncode(bodyd));
+              options: Options(headers: sentHeaders),
+              data: !fromForm ? jsonEncode(bodyd) : bodyd);
         case 'GET':
           bodyd ??= {};
           return await Dio().get(
@@ -32,6 +37,7 @@ class BaseService {
           bodyd ??= {};
           return await Dio().put(
             Uri.parse(url).toString(),
+            data: bodyd,
             options: Options(headers: sentHeaders),
           );
         case 'DELETE':
@@ -47,39 +53,6 @@ class BaseService {
     } catch (e) {
       return Response(
           statusMessage: "error", statusCode: 400, requestOptions: null);
-    }
-  }
-
-  static Future<String> apiRequest(String url, Map jsonMap,
-      {String methods: "POST"}) async {
-    HttpClient httpClient = new HttpClient();
-
-    switch (methods) {
-      case 'POST':
-        HttpClientRequest request = await httpClient.postUrl(Uri.parse(url));
-        request.headers.set('content-type', 'application/json');
-        request.add(utf8.encode(jsonEncode(jsonMap)));
-        HttpClientResponse response = await request.close();
-        String reply = await response.transform(utf8.decoder).join();
-        String scode = response.statusCode.toString();
-        httpClient.close();
-        return scode;
-      case 'GET':
-        HttpClientRequest request = await httpClient.getUrl(Uri.parse(url));
-        request.headers.set('content-type', 'application/json');
-        HttpClientResponse response = await request.close();
-        String reply = await response.transform(utf8.decoder).join();
-        String scode = response.statusCode.toString();
-        httpClient.close();
-        return reply;
-      default:
-        HttpClientRequest request = await httpClient.getUrl(Uri.parse(url));
-        request.headers.set('content-type', 'application/json');
-        HttpClientResponse response = await request.close();
-        String reply = await response.transform(utf8.decoder).join();
-        String scode = response.statusCode.toString();
-        httpClient.close();
-        return reply;
     }
   }
 

@@ -8,8 +8,9 @@ import 'baseService.dart';
 import 'package:dio/dio.dart';
 
 class EmpsLocationsServices extends BaseService {
-  static Future<List<Locations>> getLocations() async {
-    var bs = await Permission.checkPermissions();
+  static Future<List<Locations>> getLocations(
+      Map<String, String> authenticatedata) async {
+    var bs = await Permission.checkPermissions(authenticatedata);
     var sharedPrefs = await SharedPreferences.getInstance();
     var empId = sharedPrefs.get("empId");
     var empCode = sharedPrefs.get("myCode");
@@ -27,8 +28,13 @@ class EmpsLocationsServices extends BaseService {
 
     Response response = await (BaseService.makeRequest(
         BaseService.baseUri + 'EmpsLocations?$query',
+        mergeDefaultHeader: true,
+        extraHeaders: {
+          "Authorization":
+              "Bearer ${base64Url.encode(utf8.encode('${authenticatedata["token"]}:${authenticatedata["username"]}:${authenticatedata["password"]}:${authenticatedata["ExpiryDate"]}'))}"
+        },
         method: "GET"));
-    var responseMap =response.data;
+    var responseMap = response.data;
     await db.deleteLocs();
     for (var e in responseMap) {
       var i = e;
